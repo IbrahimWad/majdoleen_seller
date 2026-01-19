@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "345124084089",
+    "project_id": "majdoleen-4601a",
+    "storage_bucket": "majdoleen-4601a.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:345124084089:android:c7aa75717f577d53b277a8",
+        "android_client_info": {
+          "package_name": "com.example.majdoleen_seller"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBstorxreaSK7976Ms6xkM8l2HrIlhs1vQ"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
