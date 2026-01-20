@@ -46,6 +46,9 @@ dependencies:
   country_picker: ^2.0.25
   url_launcher: ^6.3.0
   image_picker: ^1.1.2
+  http_interceptor: ^2.0.0
+  dio: ^5.9.0
+  pretty_dio_logger: ^1.4.0
 
 dev_dependencies:
   flutter_test:

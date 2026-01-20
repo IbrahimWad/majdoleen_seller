@@ -1,188 +1,369 @@
 import 'dart:convert';
+import 'dart:typed_data';
 
+import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
+import 'package:http_parser/http_parser.dart';
+import 'package:pretty_dio_logger/pretty_dio_logger.dart';
 
 import '../config/api_config.dart';
 
 class ApiHttpClient {
   ApiHttpClient._();
 
-  static final http.Client _client = _LoggingClient(http.Client());
+  static final Dio _dio = _buildDio();
+
+  static Dio _buildDio() {
+    final dio = Dio(
+      BaseOptions(
+        // مهم جدا حتى Dio ما يعامل 4xx, 5xx كـ error ويرمي exception
+        validateStatus: (_) => true,
+        responseType: ResponseType.plain,
+        headers: <String, dynamic>{
+          'User-Agent': ApiConfig.userAgent,
+        },
+      ),
+    );
+
+    dio.interceptors.add(_DefaultHeadersInterceptor());
+
+    if (ApiConfig.logRequests) {
+      dio.interceptors.add(
+        PrettyDioLogger(
+          requestHeader: true,
+          requestBody: true,
+          responseHeader: false,
+          responseBody: true,
+          error: true,
+          compact: true,
+          maxWidth: 120,
+          enabled: true,
+          logPrint: (obj) {
+            try {
+              debugPrint(_sanitizePrettyLog(obj.toString()));
+            } catch (e) {
+              debugPrint(obj.toString());
+              debugPrint('PrettyDioLogger sanitize failed: $e');
+            }
+          },
+        ),
+      );
+    }
+
+    return dio;
+  }
 
   static Future<http.Response> get(
-    Uri url, {
-    Map<String, String>? headers,
-  }) {
-    return _client.get(url, headers: headers);
+      Uri url, {
+        Map<String, String>? headers,
+      }) async {
+    final res = await _dio.get<String>(
+      url.toString(),
+      options: Options(headers: headers),
+    );
+    return _toHttpResponse(
+      res,
+      method: 'GET',
+      url: url,
+      requestHeaders: headers,
+    );
   }
 
   static Future<http.Response> post(
-    Uri url, {
-    Map<String, String>? headers,
-    Object? body,
-    Encoding? encoding,
-  }) {
-    return _client.post(url, headers: headers, body: body, encoding: encoding);
+      Uri url, {
+        Map<String, String>? headers,
+        Object? body,
+        Encoding? encoding,
+      }) async {
+    final prepared = _prepareBodyAndHeaders(
+      headers: headers,
+      body: body,
+      encoding: encoding,
+    );
+
+    final res = await _dio.post<String>(
+      url.toString(),
+      data: prepared.data,
+      options: prepared.options,
+    );
+
+    return _toHttpResponse(
+      res,
+      method: 'POST',
+      url: url,
+      requestHeaders: prepared.requestHeadersForHttp,
+    );
   }
 
   static Future<http.Response> delete(
-    Uri url, {
-    Map<String, String>? headers,
-    Object? body,
-    Encoding? encoding,
-  }) {
-    return _client.delete(url, headers: headers, body: body, encoding: encoding);
+      Uri url, {
+        Map<String, String>? headers,
+        Object? body,
+        Encoding? encoding,
+      }) async {
+    final prepared = _prepareBodyAndHeaders(
+      headers: headers,
+      body: body,
+      encoding: encoding,
+    );
+
+    final res = await _dio.delete<String>(
+      url.toString(),
+      data: prepared.data,
+      options: prepared.options,
+    );
+
+    return _toHttpResponse(
+      res,
+      method: 'DELETE',
+      url: url,
+      requestHeaders: prepared.requestHeadersForHttp,
+    );
   }
 
-  static Future<http.StreamedResponse> send(http.BaseRequest request) {
-    return _client.send(request);
+  static Future<http.StreamedResponse> send(http.BaseRequest request) async {
+    final uri = request.url;
+    final method = request.method;
+
+    final reqHeaders = Map<String, String>.from(request.headers);
+    _applyDefaultHeaders(reqHeaders);
+
+    Object? data;
+    if (request is http.Request) {
+      // http.Request ممكن يكون bodyBytes ادق من body
+      data = request.bodyBytes;
+    } else if (request is http.MultipartRequest) {
+      data = await _multipartToFormData(request);
+    }
+
+    final res = await _dio.request<ResponseBody>(
+      uri.toString(),
+      data: data,
+      options: Options(
+        method: method,
+        headers: reqHeaders,
+        responseType: ResponseType.stream,
+        validateStatus: (_) => true,
+      ),
+    );
+
+    final flattenedHeaders = _flattenHeaders(res.headers.map);
+    final statusCode = res.statusCode ?? 0;
+
+    final responseBody = res.data;
+    final stream = responseBody?.stream ?? const Stream<Uint8List>.empty();
+    final contentLength = responseBody?.contentLength;
+
+    final isRedirect = statusCode >= 300 &&
+        statusCode < 400 &&
+        flattenedHeaders.keys.any((k) => k.toLowerCase() == 'location');
+
+    return http.StreamedResponse(
+      stream.map((chunk) => chunk),
+      statusCode,
+      headers: flattenedHeaders,
+      reasonPhrase: res.statusMessage,
+      contentLength: (contentLength == null || contentLength < 0)
+          ? null
+          : contentLength,
+      request: request,
+      isRedirect: isRedirect,
+    );
   }
 }
 
-class _LoggingClient extends http.BaseClient {
-  _LoggingClient(this._inner);
-
-  final http.Client _inner;
-
+class _DefaultHeadersInterceptor extends Interceptor {
   @override
-  Future<http.StreamedResponse> send(http.BaseRequest request) async {
-    _applyDefaultHeaders(request);
-    if (ApiConfig.logRequests) {
-      _logRequest(request);
+  void onRequest(RequestOptions options, RequestInterceptorHandler handler) {
+    options.headers.putIfAbsent('User-Agent', () => ApiConfig.userAgent);
+    handler.next(options);
+  }
+}
+
+class _PreparedRequest {
+  _PreparedRequest({
+    required this.data,
+    required this.options,
+    required this.requestHeadersForHttp,
+  });
+
+  final Object? data;
+  final Options options;
+
+  // نحتفظ بنسخة string headers لنحطها ب http.Request داخل _toHttpResponse
+  final Map<String, String>? requestHeadersForHttp;
+}
+
+_PreparedRequest _prepareBodyAndHeaders({
+  Map<String, String>? headers,
+  Object? body,
+  Encoding? encoding,
+}) {
+  final mergedHeaders = <String, String>{};
+  if (headers != null) mergedHeaders.addAll(headers);
+
+  Object? data = body;
+  String? contentType;
+
+  if (body is Map<String, String>) {
+    // http package عادة يرسلها form-urlencoded اذا ما حددت Content-Type
+    contentType = mergedHeaders.entries
+        .firstWhere(
+          (e) => e.key.toLowerCase() == 'content-type',
+      orElse: () => const MapEntry('', ''),
+    )
+        .value;
+
+    if (contentType.isEmpty) {
+      mergedHeaders['Content-Type'] =
+      'application/x-www-form-urlencoded; charset=utf-8';
+      contentType = mergedHeaders['Content-Type'];
     }
-    final startedAt = DateTime.now();
-    final response = await _inner.send(request);
-    if (ApiConfig.logRequests) {
-      final elapsedMs =
-          DateTime.now().difference(startedAt).inMilliseconds;
-      debugPrint(
-        '[API] <- ${response.statusCode} ${request.method} ${request.url} '
-        '(${elapsedMs}ms)',
-      );
+
+    data = body;
+  } else if (body is String) {
+    if (encoding != null && encoding != utf8) {
+      data = Uint8List.fromList(encoding.encode(body));
+    } else {
+      data = body;
     }
-    return response;
+  } else if (body is List<int>) {
+    data = Uint8List.fromList(body);
   }
 
-  void _applyDefaultHeaders(http.BaseRequest request) {
-    if (!_hasHeader(request, 'User-Agent')) {
-      request.headers['User-Agent'] = ApiConfig.userAgent;
-    }
+  _applyDefaultHeaders(mergedHeaders);
+
+  final options = Options(
+    headers: mergedHeaders,
+    contentType: contentType,
+    validateStatus: (_) => true,
+    responseType: ResponseType.plain,
+  );
+
+  return _PreparedRequest(
+    data: data,
+    options: options,
+    requestHeadersForHttp: mergedHeaders,
+  );
+}
+
+void _applyDefaultHeaders(Map<String, String> headers) {
+  final hasUserAgent = headers.keys.any((k) => k.toLowerCase() == 'user-agent');
+  if (!hasUserAgent) {
+    headers['User-Agent'] = ApiConfig.userAgent;
+  }
+}
+
+Future<FormData> _multipartToFormData(http.MultipartRequest request) async {
+  final form = FormData();
+
+  request.fields.forEach((key, value) {
+    form.fields.add(MapEntry(key, value));
+  });
+
+  for (final file in request.files) {
+    final filename = file.filename ?? 'file';
+    final ct = file.contentType;
+
+    final mpFile = MultipartFile.fromStream(
+          () => file.finalize(),
+      file.length,
+      filename: filename,
+      contentType: ct == null ? null : MediaType(ct.type, ct.subtype),
+    );
+
+    form.files.add(MapEntry(file.field, mpFile));
   }
 
-  bool _hasHeader(http.BaseRequest request, String name) {
-    final target = name.toLowerCase();
-    for (final key in request.headers.keys) {
-      if (key.toLowerCase() == target) {
-        return true;
-      }
-    }
-    return false;
+  return form;
+}
+
+http.Response _toHttpResponse(
+    Response<dynamic> res, {
+      required String method,
+      required Uri url,
+      Map<String, String>? requestHeaders,
+    }) {
+  final statusCode = res.statusCode ?? 0;
+
+  final body = _extractBodyAsString(res.data);
+
+  final headers = _flattenHeaders(res.headers.map);
+
+  final req = http.Request(method, url);
+  if (requestHeaders != null) {
+    req.headers.addAll(requestHeaders);
   }
 
-  void _logRequest(http.BaseRequest request) {
-    debugPrint('[API] -> ${request.method} ${request.url}');
-    final headers = _redactHeaders(request.headers);
-    if (headers.isNotEmpty) {
-      debugPrint('[API] headers: $headers');
-    }
-    if (request is http.Request) {
-      final contentType = request.headers['Content-Type'];
-      final body = _redactBody(request.body, contentType: contentType);
-      if (body.isNotEmpty) {
-        debugPrint('[API] body: ${_truncate(body, 1200)}');
-      }
-      return;
-    }
-    if (request is http.MultipartRequest) {
-      if (request.fields.isNotEmpty) {
-        debugPrint(
-          '[API] fields: ${_redactFields(request.fields)}',
-        );
-      }
-      if (request.files.isNotEmpty) {
-        final files = request.files.map((file) {
-          final name = file.filename ?? 'file';
-          return '${file.field}($name, ${file.length} bytes)';
-        }).join(', ');
-        debugPrint('[API] files: $files');
-      }
-    }
-  }
+  return http.Response(
+    body,
+    statusCode,
+    headers: headers,
+    reasonPhrase: res.statusMessage,
+    request: req,
+  );
+}
 
-  Map<String, String> _redactHeaders(Map<String, String> headers) {
-    final redacted = <String, String>{};
-    headers.forEach((key, value) {
-      if (key.toLowerCase() == 'authorization') {
-        redacted[key] = '***';
-      } else {
-        redacted[key] = value;
-      }
-    });
-    return redacted;
+String _extractBodyAsString(dynamic data) {
+  if (data == null) return '';
+  if (data is String) return data;
+  if (data is List<int>) return utf8.decode(data);
+  try {
+    return jsonEncode(data);
+  } catch (_) {
+    return data.toString();
   }
+}
 
-  Map<String, String> _redactFields(Map<String, String> fields) {
-    final redacted = <String, String>{};
-    fields.forEach((key, value) {
-      if (_isSensitiveKey(key)) {
-        redacted[key] = '***';
-      } else {
-        redacted[key] = value;
-      }
-    });
-    return redacted;
-  }
+Map<String, String> _flattenHeaders(Map<String, List<String>> headers) {
+  final out = <String, String>{};
+  headers.forEach((key, values) {
+    out[key] = values.join(', ');
+  });
+  return out;
+}
 
-  String _redactBody(String body, {String? contentType}) {
-    final trimmed = body.trim();
-    if (trimmed.isEmpty) return '';
-    final type = contentType?.toLowerCase() ?? '';
-    if (!type.contains('application/json')) {
-      return trimmed;
-    }
-    try {
-      final decoded = jsonDecode(trimmed);
-      final redacted = _redactJson(decoded);
-      return jsonEncode(redacted);
-    } catch (_) {
-      return trimmed;
-    }
-  }
+String _sanitizePrettyLog(String input) {
+  var out = input;
 
-  dynamic _redactJson(dynamic value) {
-    if (value is Map) {
-      final redacted = <String, dynamic>{};
-      value.forEach((key, val) {
-        final keyString = key.toString();
-        if (_isSensitiveKey(keyString)) {
-          redacted[keyString] = '***';
-        } else {
-          redacted[keyString] = _redactJson(val);
-        }
-      });
-      return redacted;
-    }
-    if (value is List) {
-      return value.map(_redactJson).toList();
-    }
-    return value;
-  }
+  // Authorization header
+  out = out.replaceAllMapped(
+    RegExp(
+      r'^(\s*authorization\s*:\s*)(.+)$',
+      multiLine: true,
+      caseSensitive: false,
+    ),
+        (m) => '${m[1]}***',
+  );
 
-  bool _isSensitiveKey(String key) {
-    final normalized = key.toLowerCase();
-    return normalized == 'password' ||
-        normalized == 'password_confirmation' ||
-        normalized == 'token' ||
-        normalized == 'access_token' ||
-        normalized == 'refresh_token' ||
-        normalized == 'otp' ||
-        normalized == 'code' ||
-        normalized == 'authorization';
-  }
+  // Cookies ممكن تحتوي tokens
+  out = out.replaceAllMapped(
+    RegExp(
+      r'^(\s*cookie\s*:\s*)(.+)$',
+      multiLine: true,
+      caseSensitive: false,
+    ),
+        (m) => '${m[1]}***',
+  );
 
-  String _truncate(String value, int maxLength) {
-    if (value.length <= maxLength) return value;
-    return '${value.substring(0, maxLength)}...';
-  }
+  // JSON keys
+  out = out.replaceAllMapped(
+    RegExp(
+      r'"(password|password_confirmation|token|access_token|refresh_token|otp|code|authorization)"\s*:\s*"[^"]*"',
+      caseSensitive: false,
+    ),
+        (m) => '"${m[1]}":"***"',
+  );
+
+  // simple key=value logs
+  out = out.replaceAllMapped(
+    RegExp(
+      r'(password|password_confirmation|token|access_token|refresh_token|otp|code|authorization)\s*[:=]\s*[^\s,]+',
+      caseSensitive: false,
+    ),
+        (m) => '${m[1]}: ***',
+  );
+
+  return out;
 }
