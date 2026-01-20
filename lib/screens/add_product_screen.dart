@@ -29,6 +29,7 @@ class _AddProductScreenState extends State<AddProductScreen> {
   final SellerProductsService _productsService = SellerProductsService();
   final AuthStorage _authStorage = AuthStorage();
   final ImagePicker _imagePicker = ImagePicker();
+  //roji test
 
   bool _initialLoadStarted = false;
   int _stepIndex = 0;
