@@ -17,7 +17,7 @@ class ApiHttpClient {
   static Dio _buildDio() {
     final dio = Dio(
       BaseOptions(
-        // مهم جدا حتى Dio ما يعامل 4xx, 5xx كـ error ويرمي exception
+
         validateStatus: (_) => true,
         responseType: ResponseType.plain,
         headers: <String, dynamic>{
@@ -131,7 +131,7 @@ class ApiHttpClient {
 
     Object? data;
     if (request is http.Request) {
-      // http.Request ممكن يكون bodyBytes ادق من body
+
       data = request.bodyBytes;
     } else if (request is http.MultipartRequest) {
       data = await _multipartToFormData(request);
@@ -191,7 +191,7 @@ class _PreparedRequest {
   final Object? data;
   final Options options;
 
-  // نحتفظ بنسخة string headers لنحطها ب http.Request داخل _toHttpResponse
+
   final Map<String, String>? requestHeadersForHttp;
 }
 
@@ -207,7 +207,7 @@ _PreparedRequest _prepareBodyAndHeaders({
   String? contentType;
 
   if (body is Map<String, String>) {
-    // http package عادة يرسلها form-urlencoded اذا ما حددت Content-Type
+
     contentType = mergedHeaders.entries
         .firstWhere(
           (e) => e.key.toLowerCase() == 'content-type',
@@ -337,7 +337,7 @@ String _sanitizePrettyLog(String input) {
         (m) => '${m[1]}***',
   );
 
-  // Cookies ممكن تحتوي tokens
+
   out = out.replaceAllMapped(
     RegExp(
       r'^(\s*cookie\s*:\s*)(.+)$',
