@@ -1113,7 +1113,7 @@ class _StoreProfileScreenState extends State<StoreProfileScreen> {
         ),
       ),
       bottomNavigationBar: SellerBottomBar(
-        selectedIndex: -1,
+        selectedIndex: 2,
         onTap: (index) => handleNavTap(context, index),
       ),
     );
