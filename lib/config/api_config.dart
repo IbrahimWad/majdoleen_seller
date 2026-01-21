@@ -3,7 +3,8 @@ import 'package:flutter/foundation.dart';
 class ApiConfig {
   static const String _apiPath = '/api';
   static const String _defaultScheme = 'https';
-  static const String _defaultHost = 'majdollen.com.levan-pms.com';
+  static const String _defaultHost = 'majdoleen-irq.com';
+  // static const String _defaultHost = 'majdollen.com.levan-pms.com';
   static const String _defaultPort = '';
 
   static String get baseUrl {

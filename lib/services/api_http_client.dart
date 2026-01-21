@@ -131,46 +131,44 @@ class ApiHttpClient {
 
     Object? data;
     if (request is http.Request) {
-
       data = request.bodyBytes;
     } else if (request is http.MultipartRequest) {
       data = await _multipartToFormData(request);
     }
 
-    final res = await _dio.request<ResponseBody>(
+    final res = await _dio.request<String>(
       uri.toString(),
       data: data,
       options: Options(
         method: method,
         headers: reqHeaders,
-        responseType: ResponseType.stream,
+        responseType: ResponseType.plain,
         validateStatus: (_) => true,
+        receiveDataWhenStatusError: true,
       ),
     );
 
     final flattenedHeaders = _flattenHeaders(res.headers.map);
     final statusCode = res.statusCode ?? 0;
 
-    final responseBody = res.data;
-    final stream = responseBody?.stream ?? const Stream<Uint8List>.empty();
-    final contentLength = responseBody?.contentLength;
+    final bodyString = res.data ?? '';
+    final bodyBytes = utf8.encode(bodyString);
 
     final isRedirect = statusCode >= 300 &&
         statusCode < 400 &&
         flattenedHeaders.keys.any((k) => k.toLowerCase() == 'location');
 
     return http.StreamedResponse(
-      stream.map((chunk) => chunk),
+      Stream<List<int>>.value(bodyBytes),
       statusCode,
       headers: flattenedHeaders,
       reasonPhrase: res.statusMessage,
-      contentLength: (contentLength == null || contentLength < 0)
-          ? null
-          : contentLength,
+      contentLength: bodyBytes.length,
       request: request,
       isRedirect: isRedirect,
     );
   }
+
 }
 
 class _DefaultHeadersInterceptor extends Interceptor {
