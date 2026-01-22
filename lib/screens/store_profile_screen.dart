@@ -42,7 +42,6 @@ class _StoreProfileScreenState extends State<StoreProfileScreen> {
   final TextEditingController _shopPhoneController = TextEditingController();
   final TextEditingController _addressController = TextEditingController();
 
-  // Map location controllers (read-only display)
   final TextEditingController _latController = TextEditingController();
   final TextEditingController _lngController = TextEditingController();
 
@@ -59,20 +58,15 @@ class _StoreProfileScreenState extends State<StoreProfileScreen> {
   bool _isUpdatingBanner = false;
   bool _isUpdatingMetaImage = false;
 
-  // ---------------------------------------------------------------------------
-  // MapLibre state
-  // ---------------------------------------------------------------------------
   double? _selectedLat;
   double? _selectedLng;
 
-  // Preview controller to move camera after user picks location
   MapLibreMapController? _previewController;
 
   // Default location (Iraq). Center-ish.
   static const double _defaultLat = 33.3152;
   static const double _defaultLng = 44.3661;
 
-  // Default demo style (good for testing)
   static const String _mapStyleString = MapLibreStyles.openfreemapLiberty;
 
   String? _logoUrl;
@@ -161,7 +155,6 @@ class _StoreProfileScreenState extends State<StoreProfileScreen> {
   }
 
   double _previewZoom() {
-    // Wide zoom to show Iraq when no selected value, closer when selected
     return (_selectedLat != null && _selectedLng != null) ? 15.0 : 5.5;
   }
 
@@ -184,7 +177,7 @@ class _StoreProfileScreenState extends State<StoreProfileScreen> {
     }
   }
 
-  // Apply picked location
+
   Future<void> _applyPickedLocationLatLng(double lat, double lng) async {
     setState(() {
       _selectedLat = lat;
@@ -196,7 +189,6 @@ class _StoreProfileScreenState extends State<StoreProfileScreen> {
     await _movePreviewCamera(animate: true);
   }
 
-  // CameraPosition for MapLibre
   CameraPosition _maplibreCameraPositionForPreview() {
     final lat = _selectedLat ?? _defaultLat;
     final lng = _selectedLng ?? _defaultLng;
@@ -207,7 +199,7 @@ class _StoreProfileScreenState extends State<StoreProfileScreen> {
     );
   }
 
-  // Open full screen picker and receive result
+
   Future<void> _openFullScreenMapPicker() async {
     if (kIsWeb) {
       showAppSnackBar(context, 'Map is not available on web.');
@@ -681,7 +673,7 @@ class _StoreProfileScreenState extends State<StoreProfileScreen> {
         ),
         const SizedBox(height: 10),
 
-        // Map preview container (tap to open full screen picker)
+
         Container(
           height: 190,
           decoration: BoxDecoration(
@@ -785,7 +777,7 @@ class _StoreProfileScreenState extends State<StoreProfileScreen> {
         ),
         const SizedBox(height: 6),
         Text(
-          'Tap the map preview to open full screen, move the map under the pin, then Save.',
+          'Tap the map preview to open full screen, move the map under the pin and mark your store location, then Save.',
           style: theme.textTheme.bodySmall?.copyWith(
             color: kInkColor.withOpacity(0.6),
           ),
