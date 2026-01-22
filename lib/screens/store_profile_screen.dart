@@ -65,12 +65,15 @@ class _StoreProfileScreenState extends State<StoreProfileScreen> {
   double? _selectedLat;
   double? _selectedLng;
 
-  // Default location (Dubai). Update if you want.
-  static const double _defaultLat = 25.2048;
-  static const double _defaultLng = 55.2708;
+  // Preview controller to move camera after user picks location
+  MapLibreMapController? _previewController;
+
+  // Default location (Iraq). Center-ish.
+  static const double _defaultLat = 33.3152;
+  static const double _defaultLng = 44.3661;
 
   // Default demo style (good for testing)
-  static const String _mapStyleString = MapLibreStyles.demo;
+  static const String _mapStyleString = MapLibreStyles.openfreemapLiberty;
 
   String? _logoUrl;
   String? _bannerUrl;
@@ -157,25 +160,50 @@ class _StoreProfileScreenState extends State<StoreProfileScreen> {
     return double.tryParse(s);
   }
 
+  double _previewZoom() {
+    // Wide zoom to show Iraq when no selected value, closer when selected
+    return (_selectedLat != null && _selectedLng != null) ? 15.0 : 5.5;
+  }
+
+  Future<void> _movePreviewCamera({bool animate = true}) async {
+    final c = _previewController;
+    if (c == null) return;
+
+    final lat = _selectedLat ?? _defaultLat;
+    final lng = _selectedLng ?? _defaultLng;
+    final zoom = _previewZoom();
+
+    final update = CameraUpdate.newCameraPosition(
+      CameraPosition(target: LatLng(lat, lng), zoom: zoom),
+    );
+
+    if (animate) {
+      await c.animateCamera(update);
+    } else {
+      await c.moveCamera(update);
+    }
+  }
+
   // Apply picked location
-  void _applyPickedLocationLatLng(double lat, double lng) {
+  Future<void> _applyPickedLocationLatLng(double lat, double lng) async {
     setState(() {
       _selectedLat = lat;
       _selectedLng = lng;
       _latController.text = lat.toStringAsFixed(6);
       _lngController.text = lng.toStringAsFixed(6);
     });
+
+    await _movePreviewCamera(animate: true);
   }
 
   // CameraPosition for MapLibre
   CameraPosition _maplibreCameraPositionForPreview() {
     final lat = _selectedLat ?? _defaultLat;
     final lng = _selectedLng ?? _defaultLng;
-    final zoom = (_selectedLat != null && _selectedLng != null) ? 15.0 : 12.0;
 
     return CameraPosition(
       target: LatLng(lat, lng),
-      zoom: zoom,
+      zoom: _previewZoom(),
     );
   }
 
@@ -195,6 +223,7 @@ class _StoreProfileScreenState extends State<StoreProfileScreen> {
           initialLat: initialLat,
           initialLng: initialLng,
           styleString: _mapStyleString,
+          initialZoom: (_selectedLat != null && _selectedLng != null) ? 15.0 : 6.0,
         ),
         fullscreenDialog: true,
       ),
@@ -202,7 +231,7 @@ class _StoreProfileScreenState extends State<StoreProfileScreen> {
 
     if (!mounted || result == null) return;
 
-    _applyPickedLocationLatLng(result.lat, result.lng);
+    await _applyPickedLocationLatLng(result.lat, result.lng);
   }
 
   Future<void> _loadProfile() async {
@@ -263,6 +292,9 @@ class _StoreProfileScreenState extends State<StoreProfileScreen> {
           _lngController.text = lng.toStringAsFixed(6);
         }
       });
+
+      // If preview map is already created, re-center it now
+      await _movePreviewCamera(animate: false);
     } catch (e, stackTrace) {
       if (mounted) {
         if (_isUnauthenticatedError(e)) {
@@ -585,6 +617,11 @@ class _StoreProfileScreenState extends State<StoreProfileScreen> {
     _logoUrl = null;
     _bannerUrl = null;
     _metaImageUrl = null;
+
+    // Recenter preview to Iraq when fields cleared
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _movePreviewCamera(animate: false);
+    });
   }
 
   bool _isUnauthenticatedError(Object error) {
@@ -664,6 +701,11 @@ class _StoreProfileScreenState extends State<StoreProfileScreen> {
                     key: const ValueKey("maplibre_preview"),
                     initialCameraPosition: _maplibreCameraPositionForPreview(),
                     styleString: _mapStyleString,
+                    onMapCreated: (c) async {
+                      _previewController = c;
+                      // Make sure preview starts centered (Iraq or saved location)
+                      await _movePreviewCamera(animate: false);
+                    },
                     logoEnabled: false,
                     attributionButtonPosition: AttributionButtonPosition.bottomRight,
                   ),
@@ -1373,11 +1415,13 @@ class _MaplibreFullScreenPicker extends StatefulWidget {
   final double initialLat;
   final double initialLng;
   final String styleString;
+  final double initialZoom;
 
   const _MaplibreFullScreenPicker({
     required this.initialLat,
     required this.initialLng,
     required this.styleString,
+    required this.initialZoom,
   });
 
   @override
@@ -1400,7 +1444,7 @@ class _MaplibreFullScreenPickerState extends State<_MaplibreFullScreenPicker> {
   CameraPosition _initialCamera() {
     return CameraPosition(
       target: LatLng(widget.initialLat, widget.initialLng),
-      zoom: 15.0,
+      zoom: widget.initialZoom,
     );
   }
 
