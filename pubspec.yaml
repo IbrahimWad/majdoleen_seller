@@ -52,6 +52,8 @@ dependencies:
   animated_bottom_navigation_bar: ^1.4.0
   convex_bottom_bar: ^3.2.0
   curved_labeled_navigation_bar: ^2.0.6
+  mapbox_maps_flutter: ^2.18.0
+  maplibre_gl: ^0.25.0
 
 dev_dependencies:
   flutter_test:

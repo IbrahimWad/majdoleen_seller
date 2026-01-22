@@ -1,8 +1,13 @@
+// lib/screens/store_profile_screen.dart
 import 'dart:io';
+import 'dart:math';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
+
+// MapLibre
+import 'package:maplibre_gl/maplibre_gl.dart' hide ImageSource;
 
 import '../core/app_colors.dart';
 import '../core/app_localizations.dart';
@@ -37,6 +42,10 @@ class _StoreProfileScreenState extends State<StoreProfileScreen> {
   final TextEditingController _shopPhoneController = TextEditingController();
   final TextEditingController _addressController = TextEditingController();
 
+  // Map location controllers (read-only display)
+  final TextEditingController _latController = TextEditingController();
+  final TextEditingController _lngController = TextEditingController();
+
   final SellerAuthService _sellerAuthService = SellerAuthService();
   final AuthStorage _authStorage = AuthStorage();
   final ImagePicker _imagePicker = ImagePicker();
@@ -49,6 +58,23 @@ class _StoreProfileScreenState extends State<StoreProfileScreen> {
   bool _isUpdatingLogo = false;
   bool _isUpdatingBanner = false;
   bool _isUpdatingMetaImage = false;
+
+  // ---------------------------------------------------------------------------
+  // MapLibre state
+  // ---------------------------------------------------------------------------
+  double? _selectedLat;
+  double? _selectedLng;
+
+  // Preview controller to move camera after user picks location
+  MapLibreMapController? _previewController;
+
+  // Default location (Iraq). Center-ish.
+  static const double _defaultLat = 33.3152;
+  static const double _defaultLng = 44.3661;
+
+  // Default demo style (good for testing)
+  static const String _mapStyleString = MapLibreStyles.openfreemapLiberty;
+
   String? _logoUrl;
   String? _bannerUrl;
   String? _metaImageUrl;
@@ -96,34 +122,13 @@ class _StoreProfileScreenState extends State<StoreProfileScreen> {
 
   List<_StoreHour> _buildStoreHours(AppLocalizations l10n) {
     return [
-      _StoreHour(
-        day: l10n.storeProfileDayMon,
-        hours: l10n.storeProfileHoursRegular,
-      ),
-      _StoreHour(
-        day: l10n.storeProfileDayTue,
-        hours: l10n.storeProfileHoursRegular,
-      ),
-      _StoreHour(
-        day: l10n.storeProfileDayWed,
-        hours: l10n.storeProfileHoursRegular,
-      ),
-      _StoreHour(
-        day: l10n.storeProfileDayThu,
-        hours: l10n.storeProfileHoursLate,
-      ),
-      _StoreHour(
-        day: l10n.storeProfileDayFri,
-        hours: l10n.storeProfileHoursFriday,
-      ),
-      _StoreHour(
-        day: l10n.storeProfileDaySat,
-        hours: l10n.storeProfileHoursWeekend,
-      ),
-      _StoreHour(
-        day: l10n.storeProfileDaySun,
-        hours: l10n.storeProfileHoursClosed,
-      ),
+      _StoreHour(day: l10n.storeProfileDayMon, hours: l10n.storeProfileHoursRegular),
+      _StoreHour(day: l10n.storeProfileDayTue, hours: l10n.storeProfileHoursRegular),
+      _StoreHour(day: l10n.storeProfileDayWed, hours: l10n.storeProfileHoursRegular),
+      _StoreHour(day: l10n.storeProfileDayThu, hours: l10n.storeProfileHoursLate),
+      _StoreHour(day: l10n.storeProfileDayFri, hours: l10n.storeProfileHoursFriday),
+      _StoreHour(day: l10n.storeProfileDaySat, hours: l10n.storeProfileHoursWeekend),
+      _StoreHour(day: l10n.storeProfileDaySun, hours: l10n.storeProfileHoursClosed),
     ];
   }
 
@@ -136,6 +141,8 @@ class _StoreProfileScreenState extends State<StoreProfileScreen> {
     _sellerPhoneController.dispose();
     _shopPhoneController.dispose();
     _addressController.dispose();
+    _latController.dispose();
+    _lngController.dispose();
     super.dispose();
   }
 
@@ -143,6 +150,88 @@ class _StoreProfileScreenState extends State<StoreProfileScreen> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) => _loadProfile());
+  }
+
+  double? _toDouble(dynamic v) {
+    if (v == null) return null;
+    if (v is num) return v.toDouble();
+    final s = v.toString().trim();
+    if (s.isEmpty) return null;
+    return double.tryParse(s);
+  }
+
+  double _previewZoom() {
+    // Wide zoom to show Iraq when no selected value, closer when selected
+    return (_selectedLat != null && _selectedLng != null) ? 15.0 : 5.5;
+  }
+
+  Future<void> _movePreviewCamera({bool animate = true}) async {
+    final c = _previewController;
+    if (c == null) return;
+
+    final lat = _selectedLat ?? _defaultLat;
+    final lng = _selectedLng ?? _defaultLng;
+    final zoom = _previewZoom();
+
+    final update = CameraUpdate.newCameraPosition(
+      CameraPosition(target: LatLng(lat, lng), zoom: zoom),
+    );
+
+    if (animate) {
+      await c.animateCamera(update);
+    } else {
+      await c.moveCamera(update);
+    }
+  }
+
+  // Apply picked location
+  Future<void> _applyPickedLocationLatLng(double lat, double lng) async {
+    setState(() {
+      _selectedLat = lat;
+      _selectedLng = lng;
+      _latController.text = lat.toStringAsFixed(6);
+      _lngController.text = lng.toStringAsFixed(6);
+    });
+
+    await _movePreviewCamera(animate: true);
+  }
+
+  // CameraPosition for MapLibre
+  CameraPosition _maplibreCameraPositionForPreview() {
+    final lat = _selectedLat ?? _defaultLat;
+    final lng = _selectedLng ?? _defaultLng;
+
+    return CameraPosition(
+      target: LatLng(lat, lng),
+      zoom: _previewZoom(),
+    );
+  }
+
+  // Open full screen picker and receive result
+  Future<void> _openFullScreenMapPicker() async {
+    if (kIsWeb) {
+      showAppSnackBar(context, 'Map is not available on web.');
+      return;
+    }
+
+    final initialLat = _selectedLat ?? _defaultLat;
+    final initialLng = _selectedLng ?? _defaultLng;
+
+    final result = await Navigator.of(context).push<_MaplibrePickedLocation>(
+      MaterialPageRoute(
+        builder: (_) => _MaplibreFullScreenPicker(
+          initialLat: initialLat,
+          initialLng: initialLng,
+          styleString: _mapStyleString,
+          initialZoom: (_selectedLat != null && _selectedLng != null) ? 15.0 : 6.0,
+        ),
+        fullscreenDialog: true,
+      ),
+    );
+
+    if (!mounted || result == null) return;
+
+    await _applyPickedLocationLatLng(result.lat, result.lng);
   }
 
   Future<void> _loadProfile() async {
@@ -155,49 +244,57 @@ class _StoreProfileScreenState extends State<StoreProfileScreen> {
 
     setState(() => _isLoadingProfile = true);
     try {
-      final response =
-          await _sellerAuthService.fetchSellerShopDetails(authToken: token);
+      final response = await _sellerAuthService.fetchSellerShopDetails(authToken: token);
       final success = response['success'] == true;
-      final details =
-          response['details'] is Map ? response['details'] as Map : null;
+      final details = response['details'] is Map ? response['details'] as Map : null;
       if (!mounted) return;
       if (!success) {
         setState(_clearProfileFields);
         return;
       }
       if (details == null) {
-        debugPrint(
-          'Load shop profile failed: missing details in response: $response',
-        );
+        debugPrint('Load shop profile failed: missing details in response: $response');
         showAppSnackBar(context, l10n.storeProfileLoadFailed);
         return;
       }
+
+      // Try several common keys for lat/lng, adjust to your backend keys
+      final lat = _toDouble(details['lat'] ?? details['latitude']);
+      final lng = _toDouble(details['lng'] ?? details['longitude'] ?? details['lon']);
 
       setState(() {
         _nameController.text = details['name']?.toString() ?? '';
         _slugController.text = details['slug']?.toString() ?? '';
         _shopPhoneController.text = details['shop_phone']?.toString() ?? '';
-        _sellerPhoneController.text =
-            details['seller_phone']?.toString() ?? '';
+        _sellerPhoneController.text = details['seller_phone']?.toString() ?? '';
         _addressController.text = details['shop_address']?.toString() ?? '';
         _metaTitleController.text = details['meta_title']?.toString() ?? '';
-        _metaDescriptionController.text =
-            details['meta_description']?.toString() ?? '';
+        _metaDescriptionController.text = details['meta_description']?.toString() ?? '';
+
         _metaImageUrl = _cacheBust(
           _resolveMediaUrl(
-            details['meta_image_url']?.toString() ??
-                details['meta_image']?.toString(),
+            details['meta_image_url']?.toString() ?? details['meta_image']?.toString(),
           ),
         );
+
         _logoUrl = _cacheBust(
           _resolveMediaUrl(
             details['logo']?.toString() ?? details['shop_logo']?.toString(),
           ),
         );
-        _bannerUrl = _cacheBust(
-          _resolveMediaUrl(details['shop_banner']?.toString()),
-        );
+
+        _bannerUrl = _cacheBust(_resolveMediaUrl(details['shop_banner']?.toString()));
+
+        if (lat != null && lng != null) {
+          _selectedLat = lat;
+          _selectedLng = lng;
+          _latController.text = lat.toStringAsFixed(6);
+          _lngController.text = lng.toStringAsFixed(6);
+        }
       });
+
+      // If preview map is already created, re-center it now
+      await _movePreviewCamera(animate: false);
     } catch (e, stackTrace) {
       if (mounted) {
         if (_isUnauthenticatedError(e)) {
@@ -232,21 +329,15 @@ class _StoreProfileScreenState extends State<StoreProfileScreen> {
     final shopSlug = _slugController.text.trim();
 
     if (shopName.isEmpty) {
-      if (mounted) {
-        showAppSnackBar(context, l10n.storeProfileNameRequired);
-      }
+      if (mounted) showAppSnackBar(context, l10n.storeProfileNameRequired);
       return;
     }
     if (shopPhone.isEmpty) {
-      if (mounted) {
-        showAppSnackBar(context, l10n.storeProfileShopPhoneRequired);
-      }
+      if (mounted) showAppSnackBar(context, l10n.storeProfileShopPhoneRequired);
       return;
     }
     if (shopSlug.isEmpty) {
-      if (mounted) {
-        showAppSnackBar(context, l10n.storeProfileSlugRequired);
-      }
+      if (mounted) showAppSnackBar(context, l10n.storeProfileSlugRequired);
       return;
     }
 
@@ -260,19 +351,20 @@ class _StoreProfileScreenState extends State<StoreProfileScreen> {
         sellerPhone: _sellerPhoneController.text.trim(),
         shopAddress: _addressController.text.trim(),
       );
+
       final success = response['success'] == true;
-      final details =
-          response['details'] is Map ? response['details'] as Map : null;
+      final details = response['details'] is Map ? response['details'] as Map : null;
       if (!mounted) return;
       if (!success || details == null) {
         showAppSnackBar(context, l10n.storeProfileUpdateFailed);
         return;
       }
+
       setState(() {
         _nameController.text = details['name']?.toString() ?? shopName;
         _slugController.text = details['slug']?.toString() ?? shopSlug;
-        _shopPhoneController.text =
-            details['shop_phone']?.toString() ?? shopPhone;
+        _shopPhoneController.text = details['shop_phone']?.toString() ?? shopPhone;
+
         if (details['seller_phone'] != null) {
           _sellerPhoneController.text =
               details['seller_phone']?.toString() ?? _sellerPhoneController.text;
@@ -283,15 +375,16 @@ class _StoreProfileScreenState extends State<StoreProfileScreen> {
         }
         if (details['meta_description'] != null) {
           _metaDescriptionController.text =
-              details['meta_description']?.toString() ??
-                  _metaDescriptionController.text;
+              details['meta_description']?.toString() ?? _metaDescriptionController.text;
         }
-        _addressController.text =
-            details['shop_address']?.toString() ?? _addressController.text;
-        _logoUrl =
-            details['logo']?.toString() ?? details['shop_logo']?.toString() ?? _logoUrl;
+
+        _addressController.text = details['shop_address']?.toString() ?? _addressController.text;
+
+        _logoUrl = details['logo']?.toString() ?? details['shop_logo']?.toString() ?? _logoUrl;
+
         _bannerUrl = details['shop_banner']?.toString() ?? _bannerUrl;
       });
+
       await _updateSeoDetails(token, l10n);
       if (!mounted) return;
       showAppSnackBar(context, l10n.storeProfileSavedMessage);
@@ -309,9 +402,7 @@ class _StoreProfileScreenState extends State<StoreProfileScreen> {
         );
       }
     } finally {
-      if (mounted) {
-        setState(() => _isSaving = false);
-      }
+      if (mounted) setState(() => _isSaving = false);
     }
   }
 
@@ -362,24 +453,22 @@ class _StoreProfileScreenState extends State<StoreProfileScreen> {
       );
       if (!mounted) return;
 
-      final details =
-          response['details'] is Map ? response['details'] as Map : null;
+      final details = response['details'] is Map ? response['details'] as Map : null;
       final rawUrl = response['url']?.toString();
       final resolvedUrl = _cacheBust(_resolveMediaUrl(rawUrl));
+
       setState(() {
         if (type == 'logo') {
-          _logoUrl = resolvedUrl ??
-              _resolveMediaUrl(
-                details?['logo']?.toString() ??
-                    details?['shop_logo']?.toString(),
-              ) ??
-              _logoUrl;
+          _logoUrl =
+              resolvedUrl ??
+                  _resolveMediaUrl(details?['logo']?.toString() ?? details?['shop_logo']?.toString()) ??
+                  _logoUrl;
         } else {
-          _bannerUrl = resolvedUrl ??
-              _resolveMediaUrl(details?['shop_banner']?.toString()) ??
-              _bannerUrl;
+          _bannerUrl =
+              resolvedUrl ?? _resolveMediaUrl(details?['shop_banner']?.toString()) ?? _bannerUrl;
         }
       });
+
       showAppSnackBar(context, l10n.storeProfileImageUpdatedMessage);
     } catch (e, stackTrace) {
       if (mounted) {
@@ -443,6 +532,7 @@ class _StoreProfileScreenState extends State<StoreProfileScreen> {
       setState(() {
         _metaImageUrl = resolvedUrl ?? _metaImageUrl;
       });
+
       showAppSnackBar(context, l10n.storeProfileImageUpdatedMessage);
     } catch (e, stackTrace) {
       if (mounted) {
@@ -458,18 +548,14 @@ class _StoreProfileScreenState extends State<StoreProfileScreen> {
         );
       }
     } finally {
-      if (mounted) {
-        setState(() => _isUpdatingMetaImage = false);
-      }
+      if (mounted) setState(() => _isUpdatingMetaImage = false);
     }
   }
 
   Future<void> _updateSeoDetails(String token, AppLocalizations l10n) async {
     final metaTitle = _metaTitleController.text.trim();
     final metaDescription = _metaDescriptionController.text.trim();
-    if (metaTitle.isEmpty && metaDescription.isEmpty) {
-      return;
-    }
+    if (metaTitle.isEmpty && metaDescription.isEmpty) return;
 
     try {
       final response = await _sellerAuthService.updateSellerShopSeo(
@@ -479,12 +565,12 @@ class _StoreProfileScreenState extends State<StoreProfileScreen> {
       );
       if (!mounted) return;
 
-      final details =
-          response['details'] is Map ? response['details'] as Map : null;
+      final details = response['details'] is Map ? response['details'] as Map : null;
       final rawUrl = response['meta_image_url']?.toString() ??
           details?['meta_image_url']?.toString() ??
           details?['meta_image']?.toString();
       final resolvedUrl = _cacheBust(_resolveMediaUrl(rawUrl));
+
       setState(() {
         _metaTitleController.text = details?['meta_title']?.toString() ?? metaTitle;
         _metaDescriptionController.text =
@@ -498,9 +584,7 @@ class _StoreProfileScreenState extends State<StoreProfileScreen> {
       }
       debugPrint('Update shop SEO failed: $e');
       debugPrintStack(stackTrace: stackTrace);
-      if (mounted) {
-        showAppSnackBar(context, l10n.storeProfileUpdateFailed);
-      }
+      if (mounted) showAppSnackBar(context, l10n.storeProfileUpdateFailed);
     }
   }
 
@@ -512,7 +596,7 @@ class _StoreProfileScreenState extends State<StoreProfileScreen> {
     if (!mounted) return;
     Navigator.of(context).pushNamedAndRemoveUntil(
       AppRoutes.login,
-      (route) => false,
+          (route) => false,
     );
   }
 
@@ -524,9 +608,20 @@ class _StoreProfileScreenState extends State<StoreProfileScreen> {
     _addressController.clear();
     _metaTitleController.clear();
     _metaDescriptionController.clear();
+
+    _latController.clear();
+    _lngController.clear();
+    _selectedLat = null;
+    _selectedLng = null;
+
     _logoUrl = null;
     _bannerUrl = null;
     _metaImageUrl = null;
+
+    // Recenter preview to Iraq when fields cleared
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _movePreviewCamera(animate: false);
+    });
   }
 
   bool _isUnauthenticatedError(Object error) {
@@ -549,14 +644,154 @@ class _StoreProfileScreenState extends State<StoreProfileScreen> {
     const prefix = 'Exception:';
     if (raw.startsWith(prefix)) {
       final message = raw.substring(prefix.length).trim();
-      if (message.isNotEmpty) {
-        return message;
-      }
+      if (message.isNotEmpty) return message;
     }
-    if (raw.isNotEmpty && raw != 'Exception') {
-      return raw;
-    }
+    if (raw.isNotEmpty && raw != 'Exception') return raw;
     return fallback;
+  }
+
+  Widget _buildLocationPicker(ThemeData theme) {
+    if (kIsWeb) {
+      return Padding(
+        padding: const EdgeInsets.only(top: 12),
+        child: Text(
+          'Map is not available on web.',
+          style: theme.textTheme.bodySmall?.copyWith(
+            color: kInkColor.withOpacity(0.6),
+          ),
+        ),
+      );
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const SizedBox(height: 12),
+        Row(
+          children: [
+            Expanded(
+              child: Text(
+                'Location on map',
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 10),
+
+        // Map preview container (tap to open full screen picker)
+        Container(
+          height: 190,
+          decoration: BoxDecoration(
+            color: kSurfaceColor,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(
+              color: kBrandColor.withOpacity(0.1),
+            ),
+          ),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(16),
+            child: Stack(
+              children: [
+                // MapLibre preview (non interactive)
+                IgnorePointer(
+                  child: MapLibreMap(
+                    key: const ValueKey("maplibre_preview"),
+                    initialCameraPosition: _maplibreCameraPositionForPreview(),
+                    styleString: _mapStyleString,
+                    onMapCreated: (c) async {
+                      _previewController = c;
+                      // Make sure preview starts centered (Iraq or saved location)
+                      await _movePreviewCamera(animate: false);
+                    },
+                    logoEnabled: false,
+                    attributionButtonPosition: AttributionButtonPosition.bottomRight,
+                  ),
+                ),
+
+                // Center pin for preview
+                const Center(
+                  child: Icon(
+                    Icons.place,
+                    size: 34,
+                    color: Colors.red,
+                  ),
+                ),
+
+                // Tap overlay
+                Positioned.fill(
+                  child: Material(
+                    color: Colors.transparent,
+                    child: InkWell(
+                      onTap: _openFullScreenMapPicker,
+                      child: Align(
+                        alignment: Alignment.topRight,
+                        child: Container(
+                          margin: const EdgeInsets.all(10),
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withOpacity(0.95),
+                            borderRadius: BorderRadius.circular(999),
+                            border: Border.all(color: Colors.black12),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Icon(Icons.fullscreen, size: 18),
+                              const SizedBox(width: 6),
+                              Text(
+                                'Pick',
+                                style: theme.textTheme.bodySmall?.copyWith(
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+
+        const SizedBox(height: 10),
+        Row(
+          children: [
+            Expanded(
+              child: TextFormField(
+                controller: _latController,
+                readOnly: true,
+                decoration: const InputDecoration(
+                  labelText: 'Latitude',
+                ),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: TextFormField(
+                controller: _lngController,
+                readOnly: true,
+                decoration: const InputDecoration(
+                  labelText: 'Longitude',
+                ),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 6),
+        Text(
+          'Tap the map preview to open full screen, move the map under the pin, then Save.',
+          style: theme.textTheme.bodySmall?.copyWith(
+            color: kInkColor.withOpacity(0.6),
+          ),
+        ),
+      ],
+    );
   }
 
   @override
@@ -614,19 +849,19 @@ class _StoreProfileScreenState extends State<StoreProfileScreen> {
                               padding: const EdgeInsets.all(8),
                               child: _logoUrl != null && _logoUrl!.isNotEmpty
                                   ? Image.network(
-                                      _logoUrl!,
-                                      fit: BoxFit.contain,
-                                      errorBuilder: (context, error, stackTrace) {
-                                        return Image.asset(
-                                          'assets/branding/majdoleen_logo.png',
-                                          fit: BoxFit.contain,
-                                        );
-                                      },
-                                    )
+                                _logoUrl!,
+                                fit: BoxFit.contain,
+                                errorBuilder: (context, error, stackTrace) {
+                                  return Image.asset(
+                                    'assets/branding/majdoleen_logo.png',
+                                    fit: BoxFit.contain,
+                                  );
+                                },
+                              )
                                   : Image.asset(
-                                      'assets/branding/majdoleen_logo.png',
-                                      fit: BoxFit.contain,
-                                    ),
+                                'assets/branding/majdoleen_logo.png',
+                                fit: BoxFit.contain,
+                              ),
                             ),
                           ),
                           const SizedBox(width: 12),
@@ -651,15 +886,13 @@ class _StoreProfileScreenState extends State<StoreProfileScreen> {
                             ),
                           ),
                           OutlinedButton(
-                            onPressed: _isUpdatingLogo
-                                ? null
-                                : () => _pickAndUpdateImage('logo'),
+                            onPressed: _isUpdatingLogo ? null : () => _pickAndUpdateImage('logo'),
                             child: _isUpdatingLogo
                                 ? const SizedBox(
-                                    width: 18,
-                                    height: 18,
-                                    child: CircularProgressIndicator(strokeWidth: 2),
-                                  )
+                              width: 18,
+                              height: 18,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
                                 : Text(l10n.storeProfileLogoUpdateAction),
                           ),
                         ],
@@ -676,45 +909,43 @@ class _StoreProfileScreenState extends State<StoreProfileScreen> {
                         ),
                         child: _bannerUrl != null && _bannerUrl!.isNotEmpty
                             ? ClipRRect(
-                                borderRadius: BorderRadius.circular(16),
-                                child: Image.network(
-                                  _bannerUrl!,
-                                  fit: BoxFit.cover,
-                                  width: double.infinity,
-                                  errorBuilder: (context, error, stackTrace) {
-                                    return Center(
-                                      child: Text(
-                                        l10n.storeProfileBannerLabel,
-                                        style: theme.textTheme.bodySmall?.copyWith(
-                                          color: kInkColor.withOpacity(0.6),
-                                        ),
-                                      ),
-                                    );
-                                  },
-                                ),
-                              )
-                            : Center(
+                          borderRadius: BorderRadius.circular(16),
+                          child: Image.network(
+                            _bannerUrl!,
+                            fit: BoxFit.cover,
+                            width: double.infinity,
+                            errorBuilder: (context, error, stackTrace) {
+                              return Center(
                                 child: Text(
                                   l10n.storeProfileBannerLabel,
                                   style: theme.textTheme.bodySmall?.copyWith(
                                     color: kInkColor.withOpacity(0.6),
                                   ),
                                 ),
-                              ),
+                              );
+                            },
+                          ),
+                        )
+                            : Center(
+                          child: Text(
+                            l10n.storeProfileBannerLabel,
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              color: kInkColor.withOpacity(0.6),
+                            ),
+                          ),
+                        ),
                       ),
                       const SizedBox(height: 12),
                       Align(
                         alignment: AlignmentDirectional.centerStart,
                         child: OutlinedButton(
-                          onPressed: _isUpdatingBanner
-                              ? null
-                              : () => _pickAndUpdateImage('banner'),
+                          onPressed: _isUpdatingBanner ? null : () => _pickAndUpdateImage('banner'),
                           child: _isUpdatingBanner
                               ? const SizedBox(
-                                  width: 18,
-                                  height: 18,
-                                  child: CircularProgressIndicator(strokeWidth: 2),
-                                )
+                            width: 18,
+                            height: 18,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
                               : Text(l10n.storeProfileBannerUpdateAction),
                         ),
                       ),
@@ -745,20 +976,18 @@ class _StoreProfileScreenState extends State<StoreProfileScreen> {
                     children: [
                       TextFormField(
                         controller: _nameController,
-                        decoration:
-                            InputDecoration(
-                              labelText: l10n.storeProfileNameLabel,
-                              hintText: l10n.storeProfileNameHint,
-                            ),
+                        decoration: InputDecoration(
+                          labelText: l10n.storeProfileNameLabel,
+                          hintText: l10n.storeProfileNameHint,
+                        ),
                       ),
                       const SizedBox(height: 12),
                       TextFormField(
                         controller: _slugController,
-                        decoration:
-                            InputDecoration(
-                              labelText: l10n.storeProfileSlugLabel,
-                              hintText: l10n.storeProfileSlugHint,
-                            ),
+                        decoration: InputDecoration(
+                          labelText: l10n.storeProfileSlugLabel,
+                          hintText: l10n.storeProfileSlugHint,
+                        ),
                       ),
                       const SizedBox(height: 12),
                       DropdownButtonFormField<String>(
@@ -766,15 +995,13 @@ class _StoreProfileScreenState extends State<StoreProfileScreen> {
                         items: _categoryKeys
                             .map(
                               (categoryKey) => DropdownMenuItem(
-                                value: categoryKey,
-                                child: Text(_categoryLabel(l10n, categoryKey)),
-                              ),
-                            )
+                            value: categoryKey,
+                            child: Text(_categoryLabel(l10n, categoryKey)),
+                          ),
+                        )
                             .toList(),
                         onChanged: (value) {
-                          if (value == null) {
-                            return;
-                          }
+                          if (value == null) return;
                           setState(() {
                             _selectedCategory = value;
                           });
@@ -810,31 +1037,31 @@ class _StoreProfileScreenState extends State<StoreProfileScreen> {
                     children: [
                       TextFormField(
                         controller: _sellerPhoneController,
-                        decoration:
-                            InputDecoration(
-                              labelText: l10n.storeProfileSellerPhoneLabel,
-                              hintText: l10n.storeProfileSellerPhoneHint,
-                            ),
+                        decoration: InputDecoration(
+                          labelText: l10n.storeProfileSellerPhoneLabel,
+                          hintText: l10n.storeProfileSellerPhoneHint,
+                        ),
                       ),
                       const SizedBox(height: 12),
                       TextFormField(
                         controller: _shopPhoneController,
-                        decoration:
-                            InputDecoration(
-                              labelText: l10n.storeProfileShopPhoneLabel,
-                              hintText: l10n.storeProfileShopPhoneHint,
-                            ),
+                        decoration: InputDecoration(
+                          labelText: l10n.storeProfileShopPhoneLabel,
+                          hintText: l10n.storeProfileShopPhoneHint,
+                        ),
                       ),
                       const SizedBox(height: 12),
                       TextFormField(
                         controller: _addressController,
                         maxLines: 2,
-                        decoration:
-                            InputDecoration(
-                              labelText: l10n.storeProfileAddressLabel,
-                              hintText: l10n.storeProfileAddressHint,
-                            ),
+                        decoration: InputDecoration(
+                          labelText: l10n.storeProfileAddressLabel,
+                          hintText: l10n.storeProfileAddressHint,
+                        ),
                       ),
+
+                      // Map picker directly under address
+                      _buildLocationPicker(theme),
                     ],
                   ),
                 ),
@@ -888,15 +1115,13 @@ class _StoreProfileScreenState extends State<StoreProfileScreen> {
                             ),
                           ),
                           OutlinedButton(
-                            onPressed: _isUpdatingMetaImage
-                                ? null
-                                : _pickAndUpdateSeoImage,
+                            onPressed: _isUpdatingMetaImage ? null : _pickAndUpdateSeoImage,
                             child: _isUpdatingMetaImage
                                 ? const SizedBox(
-                                    width: 18,
-                                    height: 18,
-                                    child: CircularProgressIndicator(strokeWidth: 2),
-                                  )
+                              width: 18,
+                              height: 18,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
                                 : Text(l10n.storeProfileMetaImageUpdateAction),
                           ),
                         ],
@@ -913,31 +1138,31 @@ class _StoreProfileScreenState extends State<StoreProfileScreen> {
                         ),
                         child: _metaImageUrl != null && _metaImageUrl!.isNotEmpty
                             ? ClipRRect(
-                                borderRadius: BorderRadius.circular(16),
-                                child: Image.network(
-                                  _metaImageUrl!,
-                                  fit: BoxFit.cover,
-                                  width: double.infinity,
-                                  errorBuilder: (context, error, stackTrace) {
-                                    return Center(
-                                      child: Text(
-                                        l10n.storeProfileMetaImageLabel,
-                                        style: theme.textTheme.bodySmall?.copyWith(
-                                          color: kInkColor.withOpacity(0.6),
-                                        ),
-                                      ),
-                                    );
-                                  },
-                                ),
-                              )
-                            : Center(
+                          borderRadius: BorderRadius.circular(16),
+                          child: Image.network(
+                            _metaImageUrl!,
+                            fit: BoxFit.cover,
+                            width: double.infinity,
+                            errorBuilder: (context, error, stackTrace) {
+                              return Center(
                                 child: Text(
                                   l10n.storeProfileMetaImageLabel,
                                   style: theme.textTheme.bodySmall?.copyWith(
                                     color: kInkColor.withOpacity(0.6),
                                   ),
                                 ),
-                              ),
+                              );
+                            },
+                          ),
+                        )
+                            : Center(
+                          child: Text(
+                            l10n.storeProfileMetaImageLabel,
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              color: kInkColor.withOpacity(0.6),
+                            ),
+                          ),
+                        ),
                       ),
                     ],
                   ),
@@ -1026,15 +1251,13 @@ class _StoreProfileScreenState extends State<StoreProfileScreen> {
                         items: _prepTimeKeys
                             .map(
                               (timeKey) => DropdownMenuItem(
-                                value: timeKey,
-                                child: Text(_prepTimeLabel(l10n, timeKey)),
-                              ),
-                            )
+                            value: timeKey,
+                            child: Text(_prepTimeLabel(l10n, timeKey)),
+                          ),
+                        )
                             .toList(),
                         onChanged: (value) {
-                          if (value == null) {
-                            return;
-                          }
+                          if (value == null) return;
                           setState(() {
                             _selectedPrepTime = value;
                           });
@@ -1070,10 +1293,10 @@ class _StoreProfileScreenState extends State<StoreProfileScreen> {
                     children: hours
                         .map(
                           (hour) => Padding(
-                            padding: const EdgeInsets.only(bottom: 12),
-                            child: _StoreHourRow(hour),
-                          ),
-                        )
+                        padding: const EdgeInsets.only(bottom: 12),
+                        child: _StoreHourRow(hour),
+                      ),
+                    )
                         .toList(),
                   ),
                 ),
@@ -1113,7 +1336,7 @@ class _StoreProfileScreenState extends State<StoreProfileScreen> {
         ),
       ),
       bottomNavigationBar: SellerBottomBar(
-        selectedIndex: -1,
+        selectedIndex: 2,
         onTap: (index) => handleNavTap(context, index),
       ),
     );
@@ -1173,6 +1396,162 @@ class _StoreHourRow extends StatelessWidget {
           color: kBrandColor,
         ),
       ],
+    );
+  }
+}
+
+// Full screen MapLibre picker screen
+class _MaplibrePickedLocation {
+  final double lat;
+  final double lng;
+
+  const _MaplibrePickedLocation({
+    required this.lat,
+    required this.lng,
+  });
+}
+
+class _MaplibreFullScreenPicker extends StatefulWidget {
+  final double initialLat;
+  final double initialLng;
+  final String styleString;
+  final double initialZoom;
+
+  const _MaplibreFullScreenPicker({
+    required this.initialLat,
+    required this.initialLng,
+    required this.styleString,
+    required this.initialZoom,
+  });
+
+  @override
+  State<_MaplibreFullScreenPicker> createState() => _MaplibreFullScreenPickerState();
+}
+
+class _MaplibreFullScreenPickerState extends State<_MaplibreFullScreenPicker> {
+  MapLibreMapController? _controller;
+
+  late double _pickedLat;
+  late double _pickedLng;
+
+  @override
+  void initState() {
+    super.initState();
+    _pickedLat = widget.initialLat;
+    _pickedLng = widget.initialLng;
+  }
+
+  CameraPosition _initialCamera() {
+    return CameraPosition(
+      target: LatLng(widget.initialLat, widget.initialLng),
+      zoom: widget.initialZoom,
+    );
+  }
+
+  void _onMapCreated(MapLibreMapController controller) {
+    _controller = controller;
+  }
+
+  void _syncPickedFromCamera() {
+    final c = _controller;
+    if (c == null) return;
+
+    final cam = c.cameraPosition;
+    if (cam == null) return;
+
+    final target = cam.target;
+
+    setState(() {
+      _pickedLat = target.latitude;
+      _pickedLng = target.longitude;
+    });
+  }
+
+  Future<void> _centerToTap(LatLng latLng) async {
+    final c = _controller;
+    if (c == null) return;
+
+    await c.animateCamera(CameraUpdate.newLatLng(latLng));
+  }
+
+  void _save() {
+    Navigator.of(context).pop(
+      _MaplibrePickedLocation(lat: _pickedLat, lng: _pickedLng),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Pick location'),
+        actions: [
+          TextButton(
+            onPressed: _save,
+            child: const Text('Save'),
+          ),
+        ],
+      ),
+      body: Stack(
+        children: [
+          MapLibreMap(
+            key: const ValueKey("maplibre_fullscreen_picker"),
+            initialCameraPosition: _initialCamera(),
+            styleString: widget.styleString,
+            onMapCreated: _onMapCreated,
+            onCameraIdle: _syncPickedFromCamera,
+            onMapClick: (Point<double> point, LatLng latLng) => _centerToTap(latLng),
+            trackCameraPosition: true,
+            logoEnabled: false,
+            attributionButtonPosition: AttributionButtonPosition.bottomRight,
+          ),
+          const Center(
+            child: IgnorePointer(
+              child: Icon(
+                Icons.place,
+                size: 46,
+                color: Colors.red,
+              ),
+            ),
+          ),
+          Positioned(
+            left: 16,
+            right: 16,
+            bottom: 16,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+              decoration: BoxDecoration(
+                color: Colors.white.withOpacity(0.95),
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(color: Colors.black12),
+              ),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      'Lat: ${_pickedLat.toStringAsFixed(6)}',
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                  Expanded(
+                    child: Text(
+                      'Lng: ${_pickedLng.toStringAsFixed(6)}',
+                      textAlign: TextAlign.end,
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

@@ -1,13 +1,15 @@
+// lib/widgets/seller_bottom_bar.dart
+
 import 'package:curved_labeled_navigation_bar/curved_navigation_bar.dart';
 import 'package:curved_labeled_navigation_bar/curved_navigation_bar_item.dart';
 import 'package:flutter/material.dart';
 
-import '../core/app_colors.dart'; // <-- add this so we can use kBrandColor
+import '../core/app_colors.dart';
 import '../core/app_localizations.dart';
 import '../core/app_nav_items.dart';
 
 const double _barHeight = 62.0;
-const double _popupClearance = 18.0; // extra space for the popped icon
+const double _popupClearance = 18.0;
 const double _iconSize = 20.0;
 const double _selectedIconSize = 22.0;
 const double _horizontalMargin = 14.0;
@@ -52,11 +54,13 @@ class SellerBottomBar extends StatelessWidget {
     ];
     assert(labels.length == kMainNavItems.length);
 
+    final itemsLen = kMainNavItems.length;
+    final safeIndex = itemsLen == 0 ? 0 : selectedIndex.clamp(0, itemsLen - 1);
+
     final inactiveColor = scheme.onSurface.withOpacity(0.55);
     final navBackground =
         Color.lerp(scheme.surface, Colors.white, 0.6) ?? scheme.surface;
 
-    // Base label style for non-selected items
     final baseLabelStyle = theme.textTheme.labelSmall?.copyWith(
       fontSize: 10,
       fontWeight: FontWeight.w600,
@@ -64,7 +68,6 @@ class SellerBottomBar extends StatelessWidget {
     ) ??
         const TextStyle(fontSize: 10, fontWeight: FontWeight.w600);
 
-    // Selected label style uses your brand color
     final selectedLabelStyle = baseLabelStyle.copyWith(color: kBrandColor);
 
     return SizedBox(
@@ -102,32 +105,29 @@ class SellerBottomBar extends StatelessWidget {
                         ],
                       ),
                       child: CurvedNavigationBar(
-                        index: selectedIndex,
+                        index: safeIndex,
                         height: _barHeight,
                         maxWidth: maxWidth,
                         color: navBackground,
                         backgroundColor: Colors.transparent,
-
-                        // Pressed circle color
                         buttonBackgroundColor: kBrandColor,
-
                         animationDuration: _navAnimDuration,
                         animationCurve: Curves.easeOutCubic,
-                        items: List.generate(kMainNavItems.length, (i) {
+                        items: List.generate(itemsLen, (i) {
                           final item = kMainNavItems[i];
-                          final isSelected = i == selectedIndex;
+                          final isSelected = i == safeIndex;
 
                           return CurvedNavigationBarItem(
                             child: Icon(
                               isSelected ? item.selectedIcon : item.icon,
-                              size: isSelected ? _selectedIconSize : _iconSize,
-                              // Keep icon white when it is inside the pressed circle
+                              size:
+                              isSelected ? _selectedIconSize : _iconSize,
                               color: isSelected ? Colors.white : inactiveColor,
                             ),
                             label: labels[i],
-                            // Only selected label uses kBrandColor
-                            labelStyle:
-                            isSelected ? selectedLabelStyle : baseLabelStyle,
+                            labelStyle: isSelected
+                                ? selectedLabelStyle
+                                : baseLabelStyle,
                           );
                         }),
                         onTap: onTap,

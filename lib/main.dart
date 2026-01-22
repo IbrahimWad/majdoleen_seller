@@ -1,3 +1,4 @@
+// main.dart
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -35,6 +36,7 @@ void main() async {
       systemNavigationBarContrastEnforced: false,
     ),
   );
+
   GoogleFonts.config.allowRuntimeFetching = true;
   runApp(const MajdoleenSellerApp());
 }
