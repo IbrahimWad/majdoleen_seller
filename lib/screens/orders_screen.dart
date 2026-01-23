@@ -186,13 +186,13 @@ class _OrdersScreenState extends State<OrdersScreen> {
     try {
       final response = await _ordersService
           .fetchOrders(
-            authToken: token,
-            deliveryStatus: _deliveryStatusFilterParam(),
-            paymentStatus: _paymentStatusFilterParam(),
-            orderCode: _searchQuery,
-            perPage: (_meta?.perPage ?? 10).toString(),
-            page: nextPage,
-          )
+        authToken: token,
+        deliveryStatus: _deliveryStatusFilterParam(),
+        paymentStatus: _paymentStatusFilterParam(),
+        orderCode: _searchQuery,
+        perPage: (_meta?.perPage ?? 10).toString(),
+        page: nextPage,
+      )
           .timeout(_requestTimeout);
       if (!mounted) return;
       setState(() {
@@ -329,7 +329,7 @@ class _OrdersScreenState extends State<OrdersScreen> {
                               },
                               style: OutlinedButton.styleFrom(
                                 padding:
-                                    const EdgeInsets.symmetric(vertical: 14),
+                                const EdgeInsets.symmetric(vertical: 14),
                                 shape: RoundedRectangleBorder(
                                   borderRadius: BorderRadius.circular(14),
                                 ),
@@ -372,7 +372,7 @@ class _OrdersScreenState extends State<OrdersScreen> {
     showAppSnackBar(context, l10n.storeProfileAuthRequired);
     Navigator.of(context).pushNamedAndRemoveUntil(
       AppRoutes.login,
-      (route) => false,
+          (route) => false,
     );
   }
 
@@ -402,9 +402,8 @@ class _OrdersScreenState extends State<OrdersScreen> {
     final orders = _orders;
     final totalCount = _meta?.total ?? orders.length;
     final activeFilterCount = _paymentIndex == 0 ? 0 : 1;
-    final emptyMessage = _searchQuery.isNotEmpty ||
-            _paymentIndex != 0 ||
-            _statusIndex != 0
+    final emptyMessage =
+    _searchQuery.isNotEmpty || _paymentIndex != 0 || _statusIndex != 0
         ? l10n.ordersEmptyFiltered
         : l10n.ordersEmpty;
 
@@ -433,16 +432,20 @@ class _OrdersScreenState extends State<OrdersScreen> {
     ];
 
     return Scaffold(
+      extendBody: true,
       appBar: const SellerAppBar(),
       drawer: const SellerDrawer(),
       body: SafeArea(
         top: false,
+        bottom: false,
         child: RefreshIndicator(
           onRefresh: _refreshAll,
           child: SingleChildScrollView(
             controller: _scrollController,
             physics: const AlwaysScrollableScrollPhysics(),
-            padding: const EdgeInsets.only(bottom: 24),
+            padding: EdgeInsets.only(
+              bottom: SellerBottomBar.bodyBottomPadding(context),
+            ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -483,25 +486,25 @@ class _OrdersScreenState extends State<OrdersScreen> {
                                 clipBehavior: Clip.none,
                                 children: [
                                   const Icon(Icons.tune_rounded),
-                                if (activeFilterCount > 0)
-                                  Positioned(
-                                    right: -2,
-                                    top: -2,
-                                    child: Container(
-                                      padding: const EdgeInsets.symmetric(
+                                  if (activeFilterCount > 0)
+                                    Positioned(
+                                      right: -2,
+                                      top: -2,
+                                      child: Container(
+                                        padding: const EdgeInsets.symmetric(
                                           horizontal: 5,
                                           vertical: 2,
                                         ),
                                         decoration: BoxDecoration(
                                           color: kBrandColor,
                                           borderRadius:
-                                              BorderRadius.circular(999),
-                                      ),
-                                      child: Text(
-                                        activeFilterCount.toString(),
-                                        style: theme.textTheme.labelSmall
-                                            ?.copyWith(
-                                          color: Colors.white,
+                                          BorderRadius.circular(999),
+                                        ),
+                                        child: Text(
+                                          activeFilterCount.toString(),
+                                          style: theme.textTheme.labelSmall
+                                              ?.copyWith(
+                                            color: Colors.white,
                                             fontSize: 10,
                                             fontWeight: FontWeight.w700,
                                           ),
@@ -559,7 +562,7 @@ class _OrdersScreenState extends State<OrdersScreen> {
                     spacing: 12,
                     runSpacing: 12,
                     children:
-                        summaries.map((item) => SummaryCard(item: item)).toList(),
+                    summaries.map((item) => SummaryCard(item: item)).toList(),
                   ),
                 ),
                 const SizedBox(height: 24),
@@ -608,7 +611,7 @@ class _OrdersScreenState extends State<OrdersScreen> {
                     child: Column(
                       children: [
                         ...orders.map(
-                          (order) => Padding(
+                              (order) => Padding(
                             padding: const EdgeInsets.only(bottom: 12),
                             child: _OrderDetailCard(
                               order,
@@ -636,9 +639,12 @@ class _OrdersScreenState extends State<OrdersScreen> {
           ),
         ),
       ),
-      bottomNavigationBar: SellerBottomBar(
-        selectedIndex: 0,
-        onTap: (index) => handleNavTap(context, index),
+      bottomNavigationBar: Material(
+        type: MaterialType.transparency,
+        child: SellerBottomBar(
+          selectedIndex: 0,
+          onTap: (index) => handleNavTap(context, index),
+        ),
       ),
     );
   }
@@ -858,9 +864,9 @@ class _OrderDetailsScreenState extends State<_OrderDetailsScreen> {
     try {
       final details = await _ordersService
           .fetchOrderDetails(
-            authToken: token,
-            orderId: widget.order.id,
-          )
+        authToken: token,
+        orderId: widget.order.id,
+      )
           .timeout(const Duration(seconds: 20));
       if (!mounted) return;
       final deliveryCode = details.deliveryStatus ??
@@ -898,7 +904,7 @@ class _OrderDetailsScreenState extends State<_OrderDetailsScreen> {
     showAppSnackBar(context, l10n.storeProfileAuthRequired);
     Navigator.of(context).pushNamedAndRemoveUntil(
       AppRoutes.login,
-      (route) => false,
+          (route) => false,
     );
   }
 
@@ -961,8 +967,7 @@ class _OrderDetailsScreenState extends State<_OrderDetailsScreen> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => Dialog(
-        insetPadding:
-            const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
+        insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
         backgroundColor: kCardColor,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(28),
@@ -995,23 +1000,19 @@ class _OrderDetailsScreenState extends State<_OrderDetailsScreen> {
                       children: [
                         Text(
                           l10n.ordersDetailsRejectTitle,
-                          style: Theme.of(context)
-                              .textTheme
-                              .titleLarge
-                              ?.copyWith(
-                                fontWeight: FontWeight.w700,
-                                color: kInkColor,
-                              ),
+                          style:
+                          Theme.of(context).textTheme.titleLarge?.copyWith(
+                            fontWeight: FontWeight.w700,
+                            color: kInkColor,
+                          ),
                         ),
                         const SizedBox(height: 6),
                         Text(
                           l10n.ordersDetailsRejectMessage,
-                          style: Theme.of(context)
-                              .textTheme
-                              .bodyMedium
-                              ?.copyWith(
-                                color: kInkColor.withValues(alpha: 0.7),
-                              ),
+                          style:
+                          Theme.of(context).textTheme.bodyMedium?.copyWith(
+                            color: kInkColor.withValues(alpha: 0.7),
+                          ),
                         ),
                       ],
                     ),
@@ -1036,13 +1037,11 @@ class _OrderDetailsScreenState extends State<_OrderDetailsScreen> {
                       child: Text(
                         l10n.ordersDetailsRejectCancel,
                         textAlign: TextAlign.center,
-                        style: Theme.of(context)
-                            .textTheme
-                            .bodyMedium
-                            ?.copyWith(
-                              fontWeight: FontWeight.w600,
-                              color: kDangerColor,
-                            ),
+                        style:
+                        Theme.of(context).textTheme.bodyMedium?.copyWith(
+                          fontWeight: FontWeight.w600,
+                          color: kDangerColor,
+                        ),
                       ),
                     ),
                   ),
@@ -1060,13 +1059,11 @@ class _OrderDetailsScreenState extends State<_OrderDetailsScreen> {
                       child: Text(
                         l10n.ordersDetailsRejectConfirm,
                         textAlign: TextAlign.center,
-                        style: Theme.of(context)
-                            .textTheme
-                            .bodyMedium
-                            ?.copyWith(
-                              fontWeight: FontWeight.w700,
-                              color: Colors.white,
-                            ),
+                        style:
+                        Theme.of(context).textTheme.bodyMedium?.copyWith(
+                          fontWeight: FontWeight.w700,
+                          color: Colors.white,
+                        ),
                       ),
                     ),
                   ),
@@ -1128,8 +1125,7 @@ class _OrderDetailsScreenState extends State<_OrderDetailsScreen> {
       return;
     }
 
-    if (_deliveryStatusKey == 'delivered' &&
-        _paymentStatusKey == 'unpaid') {
+    if (_deliveryStatusKey == 'delivered' && _paymentStatusKey == 'unpaid') {
       showAppSnackBar(context, l10n.ordersStatusInvalidDeliveredUnpaid);
       return;
     }
@@ -1206,14 +1202,15 @@ class _OrderDetailsScreenState extends State<_OrderDetailsScreen> {
     final customerName =
         details?.customer?.name ?? widget.order.customer?.name ?? '';
     final itemsCount = details?.products.fold<int>(
-          0,
+      0,
           (sum, item) => sum + item.quantity,
-        ) ??
+    ) ??
         widget.order.totalItems;
-    final totalPayable = details?.totals.totalPayable ?? widget.order.sellerAmount;
+    final totalPayable =
+        details?.totals.totalPayable ?? widget.order.sellerAmount;
     final orderDate = details?.orderDate ?? _formatOrderDate(widget.order);
     final shippingAddress =
-        details == null ? '' : _formatAddress(details.shippingDetails);
+    details == null ? '' : _formatAddress(details.shippingDetails);
 
     return Scaffold(
       appBar: AppBar(
@@ -1287,7 +1284,10 @@ class _OrderDetailsScreenState extends State<_OrderDetailsScreen> {
                       ),
                       const SizedBox(height: 4),
                       Text(
-                        l10n.ordersItemsLine(itemsCount, _formatMoney(totalPayable)),
+                        l10n.ordersItemsLine(
+                          itemsCount,
+                          _formatMoney(totalPayable),
+                        ),
                         style: theme.textTheme.bodySmall?.copyWith(
                           color: kInkColor.withValues(alpha: 0.6),
                         ),
@@ -1390,14 +1390,16 @@ class _OrderDetailsScreenState extends State<_OrderDetailsScreen> {
                   child: _isLoading
                       ? const Center(child: CircularProgressIndicator())
                       : Column(
-                          children: [
-                            for (int i = 0; i < (details?.products.length ?? 0); i++) ...[
-                              _OrderItemRow(details!.products[i]),
-                              if (i != (details.products.length - 1))
-                                const Divider(height: 24),
-                            ],
-                          ],
-                        ),
+                    children: [
+                      for (int i = 0;
+                      i < (details?.products.length ?? 0);
+                      i++) ...[
+                        _OrderItemRow(details!.products[i]),
+                        if (i != (details.products.length - 1))
+                          const Divider(height: 24),
+                      ],
+                    ],
+                  ),
                 ),
               ),
               const SizedBox(height: 20),
@@ -1632,9 +1634,7 @@ class _OrderDetailCard extends StatelessWidget {
                 children: [
                   Expanded(
                     child: Text(
-                      order.orderCode.isNotEmpty
-                          ? order.orderCode
-                          : '#${order.id}',
+                      order.orderCode.isNotEmpty ? order.orderCode : '#${order.id}',
                       style: theme.textTheme.bodyMedium?.copyWith(
                         fontWeight: FontWeight.w700,
                       ),
@@ -1720,15 +1720,15 @@ class _OrderItemRow extends StatelessWidget {
     final deliveryStatus = item.deliveryStatusLabel.isNotEmpty
         ? item.deliveryStatusLabel
         : _statusLabel(
-            l10n,
-            _deliveryStatusKeyFromCode(item.deliveryStatus),
-          );
+      l10n,
+      _deliveryStatusKeyFromCode(item.deliveryStatus),
+    );
     final paymentStatus = item.paymentStatusLabel.isNotEmpty
         ? item.paymentStatusLabel
         : _paymentStatusLabel(
-            l10n,
-            _paymentStatusKeyFromCode(item.paymentStatus),
-          );
+      l10n,
+      _paymentStatusKeyFromCode(item.paymentStatus),
+    );
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -1777,10 +1777,8 @@ class _OrderItemRow extends StatelessWidget {
             spacing: 8,
             runSpacing: 6,
             children: [
-              if (deliveryStatus.isNotEmpty)
-                _StatusChip(text: deliveryStatus),
-              if (paymentStatus.isNotEmpty)
-                _StatusChip(text: paymentStatus),
+              if (deliveryStatus.isNotEmpty) _StatusChip(text: deliveryStatus),
+              if (paymentStatus.isNotEmpty) _StatusChip(text: paymentStatus),
               if (item.returnStatusLabel.isNotEmpty)
                 _StatusChip(text: item.returnStatusLabel),
             ],
@@ -1966,8 +1964,9 @@ class _FilterGroup extends StatelessWidget {
                 fontWeight: FontWeight.w600,
               ),
               side: BorderSide(
-                color:
-                    isSelected ? kBrandColor : kBrandColor.withValues(alpha: 0.2),
+                color: isSelected
+                    ? kBrandColor
+                    : kBrandColor.withValues(alpha: 0.2),
               ),
             );
           }),

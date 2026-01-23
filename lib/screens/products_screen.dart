@@ -149,13 +149,15 @@ class _ProductsScreenState extends State<ProductsScreen> {
       debugPrint(
         'ProductsScreen fetchProducts page=$nextPage search="$_searchQuery" status=${_statusFilterParam()} per_page=${_meta?.perPage ?? 10}',
       );
-      final response = await _productsService.fetchProducts(
+      final response = await _productsService
+          .fetchProducts(
         authToken: token,
         searchKey: _searchQuery,
         productStatus: _statusFilterParam(),
         perPage: _meta?.perPage ?? 10,
         page: nextPage,
-      ).timeout(_requestTimeout);
+      )
+          .timeout(_requestTimeout);
       if (!mounted) return;
       debugPrint(
         'ProductsScreen fetchProducts success count=${response.products.length} meta=${response.meta?.currentPage}/${response.meta?.lastPage}',
@@ -355,9 +357,7 @@ class _ProductsScreenState extends State<ProductsScreen> {
     if (token == null || token.isEmpty) return;
     final l10n = AppLocalizations.of(context);
     final nextStatus = product.isActive ? 2 : 1;
-    debugPrint(
-      'ProductsScreen update status: id=${product.id}, status=$nextStatus',
-    );
+    debugPrint('ProductsScreen update status: id=${product.id}, status=$nextStatus');
     try {
       await _productsService.updateStatus(
         authToken: token,
@@ -395,11 +395,7 @@ class _ProductsScreenState extends State<ProductsScreen> {
       await _loadProducts(reset: true);
       showAppSnackBar(context, l10n.productsDiscountUpdated);
     } catch (e, stackTrace) {
-      await _handleServiceError(
-        e,
-        stackTrace,
-        l10n.productsDiscountUpdateFailed,
-      );
+      await _handleServiceError(e, stackTrace, l10n.productsDiscountUpdateFailed);
     }
   }
 
@@ -423,11 +419,7 @@ class _ProductsScreenState extends State<ProductsScreen> {
         await _loadProducts(reset: true);
         showAppSnackBar(context, l10n.productsPriceUpdated);
       } catch (e, stackTrace) {
-        await _handleServiceError(
-          e,
-          stackTrace,
-          l10n.productsPriceUpdateFailed,
-        );
+        await _handleServiceError(e, stackTrace, l10n.productsPriceUpdateFailed);
       }
       return;
     }
@@ -450,11 +442,7 @@ class _ProductsScreenState extends State<ProductsScreen> {
       await _loadProducts(reset: true);
       showAppSnackBar(context, l10n.productsPriceUpdated);
     } catch (e, stackTrace) {
-      await _handleServiceError(
-        e,
-        stackTrace,
-        l10n.productsPriceUpdateFailed,
-      );
+      await _handleServiceError(e, stackTrace, l10n.productsPriceUpdateFailed);
     }
   }
 
@@ -478,11 +466,7 @@ class _ProductsScreenState extends State<ProductsScreen> {
         await _loadProducts(reset: true);
         showAppSnackBar(context, l10n.productsStockUpdated);
       } catch (e, stackTrace) {
-        await _handleServiceError(
-          e,
-          stackTrace,
-          l10n.productsStockUpdateFailed,
-        );
+        await _handleServiceError(e, stackTrace, l10n.productsStockUpdateFailed);
       }
       return;
     }
@@ -491,9 +475,7 @@ class _ProductsScreenState extends State<ProductsScreen> {
     if (quantity == null) return;
 
     try {
-      debugPrint(
-        'ProductsScreen update stock payload: id=${product.id}, quantity=$quantity',
-      );
+      debugPrint('ProductsScreen update stock payload: id=${product.id}, quantity=$quantity');
       await _productsService.updateStock(
         authToken: token,
         productId: product.id,
@@ -504,19 +486,15 @@ class _ProductsScreenState extends State<ProductsScreen> {
       await _loadProducts(reset: true);
       showAppSnackBar(context, l10n.productsStockUpdated);
     } catch (e, stackTrace) {
-      await _handleServiceError(
-        e,
-        stackTrace,
-        l10n.productsStockUpdateFailed,
-      );
+      await _handleServiceError(e, stackTrace, l10n.productsStockUpdateFailed);
     }
   }
 
   Future<void> _handleServiceError(
-    Object error,
-    StackTrace stackTrace,
-    String fallbackMessage,
-  ) async {
+      Object error,
+      StackTrace stackTrace,
+      String fallbackMessage,
+      ) async {
     if (!mounted) return;
     final l10n = AppLocalizations.of(context);
     if (_isUnauthenticatedError(error)) {
@@ -545,8 +523,7 @@ class _ProductsScreenState extends State<ProductsScreen> {
           children: [
             DropdownButtonFormField<int>(
               value: type,
-              decoration:
-                  InputDecoration(labelText: l10n.productsDiscountTypeLabel),
+              decoration: InputDecoration(labelText: l10n.productsDiscountTypeLabel),
               items: [
                 DropdownMenuItem(
                   value: 1,
@@ -565,10 +542,8 @@ class _ProductsScreenState extends State<ProductsScreen> {
             const SizedBox(height: 12),
             TextField(
               controller: amountController,
-              keyboardType:
-                  const TextInputType.numberWithOptions(decimal: true),
-              decoration:
-                  InputDecoration(labelText: l10n.productsDiscountAmountLabel),
+              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              decoration: InputDecoration(labelText: l10n.productsDiscountAmountLabel),
             ),
           ],
         ),
@@ -579,11 +554,8 @@ class _ProductsScreenState extends State<ProductsScreen> {
           ),
           FilledButton(
             onPressed: () {
-              final amount =
-                  double.tryParse(amountController.text.trim()) ?? 0;
-              Navigator.of(context).pop(
-                _DiscountInput(type: type, amount: amount),
-              );
+              final amount = double.tryParse(amountController.text.trim()) ?? 0;
+              Navigator.of(context).pop(_DiscountInput(type: type, amount: amount));
             },
             child: Text(l10n.editProductSaveAction),
           ),
@@ -609,18 +581,14 @@ class _ProductsScreenState extends State<ProductsScreen> {
           children: [
             TextField(
               controller: purchaseController,
-              keyboardType:
-                  const TextInputType.numberWithOptions(decimal: true),
-              decoration:
-                  InputDecoration(labelText: l10n.productsPurchasePriceLabel),
+              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              decoration: InputDecoration(labelText: l10n.productsPurchasePriceLabel),
             ),
             const SizedBox(height: 12),
             TextField(
               controller: unitController,
-              keyboardType:
-                  const TextInputType.numberWithOptions(decimal: true),
-              decoration:
-                  InputDecoration(labelText: l10n.productsUnitPriceLabel),
+              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              decoration: InputDecoration(labelText: l10n.productsUnitPriceLabel),
             ),
           ],
         ),
@@ -631,12 +599,9 @@ class _ProductsScreenState extends State<ProductsScreen> {
           ),
           FilledButton(
             onPressed: () {
-              final purchase =
-                  double.tryParse(purchaseController.text.trim()) ?? 0;
+              final purchase = double.tryParse(purchaseController.text.trim()) ?? 0;
               final unit = double.tryParse(unitController.text.trim()) ?? 0;
-              Navigator.of(context).pop(
-                _PriceInput(purchasePrice: purchase, unitPrice: unit),
-              );
+              Navigator.of(context).pop(_PriceInput(purchasePrice: purchase, unitPrice: unit));
             },
             child: Text(l10n.editProductSaveAction),
           ),
@@ -683,15 +648,13 @@ class _ProductsScreenState extends State<ProductsScreen> {
   }
 
   Future<List<Map<String, dynamic>>?> _showVariationPriceDialog(
-    SellerProductSummary product,
-    AppLocalizations l10n,
-  ) async {
+      SellerProductSummary product,
+      AppLocalizations l10n,
+      ) async {
     final token = _authToken;
     if (token == null || token.isEmpty) return null;
 
-    debugPrint(
-      'ProductsScreen show variation price dialog: id=${product.id}',
-    );
+    debugPrint('ProductsScreen show variation price dialog: id=${product.id}');
     try {
       final details = await _productsService.fetchProductDetails(
         authToken: token,
@@ -707,16 +670,16 @@ class _ProductsScreenState extends State<ProductsScreen> {
       final controllers = variations
           .map(
             (variation) => _VariationPriceInput(
-              id: variation.id ?? 0,
-              code: variation.code,
-              purchaseController: TextEditingController(
-                text: variation.purchasePrice?.toString() ?? '',
-              ),
-              unitController: TextEditingController(
-                text: variation.unitPrice?.toString() ?? '',
-              ),
-            ),
-          )
+          id: variation.id ?? 0,
+          code: variation.code,
+          purchaseController: TextEditingController(
+            text: variation.purchasePrice?.toString() ?? '',
+          ),
+          unitController: TextEditingController(
+            text: variation.unitPrice?.toString() ?? '',
+          ),
+        ),
+      )
           .toList();
 
       final result = await showDialog<List<Map<String, dynamic>>>(
@@ -735,20 +698,15 @@ class _ProductsScreenState extends State<ProductsScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      item.code.isNotEmpty
-                          ? item.code
-                          : l10n.productsVariationLabel(index + 1),
-                      style: Theme.of(context)
-                          .textTheme
-                          .bodyMedium
-                          ?.copyWith(fontWeight: FontWeight.w600),
+                      item.code.isNotEmpty ? item.code : l10n.productsVariationLabel(index + 1),
+                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                        fontWeight: FontWeight.w600,
+                      ),
                     ),
                     const SizedBox(height: 8),
                     TextField(
                       controller: item.purchaseController,
-                      keyboardType: const TextInputType.numberWithOptions(
-                        decimal: true,
-                      ),
+                      keyboardType: const TextInputType.numberWithOptions(decimal: true),
                       decoration: InputDecoration(
                         labelText: l10n.productsPurchasePriceLabel,
                       ),
@@ -756,9 +714,7 @@ class _ProductsScreenState extends State<ProductsScreen> {
                     const SizedBox(height: 8),
                     TextField(
                       controller: item.unitController,
-                      keyboardType: const TextInputType.numberWithOptions(
-                        decimal: true,
-                      ),
+                      keyboardType: const TextInputType.numberWithOptions(decimal: true),
                       decoration: InputDecoration(
                         labelText: l10n.productsUnitPriceLabel,
                       ),
@@ -778,13 +734,11 @@ class _ProductsScreenState extends State<ProductsScreen> {
                 final payload = controllers
                     .map(
                       (item) => {
-                        'id': item.id,
-                        'purchase_price':
-                            double.tryParse(item.purchaseController.text) ?? 0,
-                        'unit_price':
-                            double.tryParse(item.unitController.text) ?? 0,
-                      },
-                    )
+                    'id': item.id,
+                    'purchase_price': double.tryParse(item.purchaseController.text) ?? 0,
+                    'unit_price': double.tryParse(item.unitController.text) ?? 0,
+                  },
+                )
                     .toList();
                 Navigator.of(context).pop(payload);
               },
@@ -801,25 +755,19 @@ class _ProductsScreenState extends State<ProductsScreen> {
 
       return result;
     } catch (e, stackTrace) {
-      await _handleServiceError(
-        e,
-        stackTrace,
-        l10n.productsPriceUpdateFailed,
-      );
+      await _handleServiceError(e, stackTrace, l10n.productsPriceUpdateFailed);
       return null;
     }
   }
 
   Future<List<Map<String, dynamic>>?> _showVariationStockDialog(
-    SellerProductSummary product,
-    AppLocalizations l10n,
-  ) async {
+      SellerProductSummary product,
+      AppLocalizations l10n,
+      ) async {
     final token = _authToken;
     if (token == null || token.isEmpty) return null;
 
-    debugPrint(
-      'ProductsScreen show variation stock dialog: id=${product.id}',
-    );
+    debugPrint('ProductsScreen show variation stock dialog: id=${product.id}');
     try {
       final details = await _productsService.fetchProductDetails(
         authToken: token,
@@ -835,13 +783,13 @@ class _ProductsScreenState extends State<ProductsScreen> {
       final controllers = variations
           .map(
             (variation) => _VariationStockInput(
-              id: variation.id ?? 0,
-              code: variation.code,
-              quantityController: TextEditingController(
-                text: variation.quantity?.toString() ?? '',
-              ),
-            ),
-          )
+          id: variation.id ?? 0,
+          code: variation.code,
+          quantityController: TextEditingController(
+            text: variation.quantity?.toString() ?? '',
+          ),
+        ),
+      )
           .toList();
 
       final result = await showDialog<List<Map<String, dynamic>>>(
@@ -860,13 +808,10 @@ class _ProductsScreenState extends State<ProductsScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      item.code.isNotEmpty
-                          ? item.code
-                          : l10n.productsVariationLabel(index + 1),
-                      style: Theme.of(context)
-                          .textTheme
-                          .bodyMedium
-                          ?.copyWith(fontWeight: FontWeight.w600),
+                      item.code.isNotEmpty ? item.code : l10n.productsVariationLabel(index + 1),
+                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                        fontWeight: FontWeight.w600,
+                      ),
                     ),
                     const SizedBox(height: 8),
                     TextField(
@@ -891,11 +836,10 @@ class _ProductsScreenState extends State<ProductsScreen> {
                 final payload = controllers
                     .map(
                       (item) => {
-                        'id': item.id,
-                        'quantity':
-                            int.tryParse(item.quantityController.text) ?? 0,
-                      },
-                    )
+                    'id': item.id,
+                    'quantity': int.tryParse(item.quantityController.text) ?? 0,
+                  },
+                )
                     .toList();
                 Navigator.of(context).pop(payload);
               },
@@ -911,11 +855,7 @@ class _ProductsScreenState extends State<ProductsScreen> {
 
       return result;
     } catch (e, stackTrace) {
-      await _handleServiceError(
-        e,
-        stackTrace,
-        l10n.productsStockUpdateFailed,
-      );
+      await _handleServiceError(e, stackTrace, l10n.productsStockUpdateFailed);
       return null;
     }
   }
@@ -931,7 +871,7 @@ class _ProductsScreenState extends State<ProductsScreen> {
     showAppSnackBar(context, l10n.storeProfileAuthRequired);
     Navigator.of(context).pushNamedAndRemoveUntil(
       AppRoutes.login,
-      (route) => false,
+          (route) => false,
     );
   }
 
@@ -944,13 +884,9 @@ class _ProductsScreenState extends State<ProductsScreen> {
     const prefix = 'Exception:';
     if (raw.startsWith(prefix)) {
       final message = raw.substring(prefix.length).trim();
-      if (message.isNotEmpty) {
-        return message;
-      }
+      if (message.isNotEmpty) return message;
     }
-    if (raw.isNotEmpty && raw != 'Exception') {
-      return raw;
-    }
+    if (raw.isNotEmpty && raw != 'Exception') return raw;
     return fallback;
   }
 
@@ -990,6 +926,7 @@ class _ProductsScreenState extends State<ProductsScreen> {
     ];
 
     return Scaffold(
+      extendBody: true,
       appBar: const SellerAppBar(),
       drawer: const SellerDrawer(),
       floatingActionButton: FloatingActionButton(
@@ -997,13 +934,17 @@ class _ProductsScreenState extends State<ProductsScreen> {
         backgroundColor: kBrandColor,
         child: const Icon(Icons.add, color: Colors.white),
       ),
+
       body: SafeArea(
         top: false,
+        bottom: false,
         child: RefreshIndicator(
           onRefresh: () => _loadProducts(reset: true),
           child: SingleChildScrollView(
             controller: _scrollController,
-            padding: const EdgeInsets.only(bottom: 24),
+            padding: EdgeInsets.only(
+              bottom: SellerBottomBar.bodyBottomPadding(context),
+            ),
             physics: const AlwaysScrollableScrollPhysics(),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -1019,16 +960,16 @@ class _ProductsScreenState extends State<ProductsScreen> {
                       suffixIcon: _searchQuery.isEmpty
                           ? null
                           : IconButton(
-                              onPressed: () {
-                                debugPrint('ProductsScreen search cleared');
-                                _searchController.clear();
-                                setState(() {
-                                  _searchQuery = '';
-                                });
-                                _loadProducts(reset: true);
-                              },
-                              icon: const Icon(Icons.close_rounded),
-                            ),
+                        onPressed: () {
+                          debugPrint('ProductsScreen search cleared');
+                          _searchController.clear();
+                          setState(() {
+                            _searchQuery = '';
+                          });
+                          _loadProducts(reset: true);
+                        },
+                        icon: const Icon(Icons.close_rounded),
+                      ),
                     ),
                   ),
                 ),
@@ -1037,17 +978,13 @@ class _ProductsScreenState extends State<ProductsScreen> {
                   child: SingleChildScrollView(
                     scrollDirection: Axis.horizontal,
                     child: Row(
-                      children:
-                          List.generate(_statusFilterKeys.length, (index) {
+                      children: List.generate(_statusFilterKeys.length, (index) {
                         final isSelected = _statusIndex == index;
                         return Padding(
                           padding: const EdgeInsets.only(right: 10),
                           child: ChoiceChip(
                             label: Text(
-                              _statusFilterLabel(
-                                l10n,
-                                _statusFilterKeys[index],
-                              ),
+                              _statusFilterLabel(l10n, _statusFilterKeys[index]),
                             ),
                             selected: isSelected,
                             onSelected: (_) {
@@ -1081,17 +1018,13 @@ class _ProductsScreenState extends State<ProductsScreen> {
                   child: SingleChildScrollView(
                     scrollDirection: Axis.horizontal,
                     child: Row(
-                      children:
-                          List.generate(_stockFilterKeys.length, (index) {
+                      children: List.generate(_stockFilterKeys.length, (index) {
                         final isSelected = _stockIndex == index;
                         return Padding(
                           padding: const EdgeInsets.only(right: 10),
                           child: ChoiceChip(
                             label: Text(
-                              _stockFilterLabel(
-                                l10n,
-                                _stockFilterKeys[index],
-                              ),
+                              _stockFilterLabel(l10n, _stockFilterKeys[index]),
                             ),
                             selected: isSelected,
                             onSelected: (_) {
@@ -1124,8 +1057,7 @@ class _ProductsScreenState extends State<ProductsScreen> {
                   child: Wrap(
                     spacing: 12,
                     runSpacing: 12,
-                    children:
-                        summaries.map((item) => SummaryCard(item: item)).toList(),
+                    children: summaries.map((item) => SummaryCard(item: item)).toList(),
                   ),
                 ),
                 const SizedBox(height: 24),
@@ -1171,7 +1103,7 @@ class _ProductsScreenState extends State<ProductsScreen> {
                           )
                         else
                           ...products.map(
-                            (product) => Padding(
+                                (product) => Padding(
                               padding: const EdgeInsets.only(bottom: 12),
                               child: _ProductCard(
                                 product: product,
@@ -1194,9 +1126,13 @@ class _ProductsScreenState extends State<ProductsScreen> {
           ),
         ),
       ),
-      bottomNavigationBar: SellerBottomBar(
-        selectedIndex: 1,
-        onTap: (index) => handleNavTap(context, index),
+
+      bottomNavigationBar: Material(
+        type: MaterialType.transparency,
+        child: SellerBottomBar(
+          selectedIndex: 1,
+          onTap: (index) => handleNavTap(context, index),
+        ),
       ),
     );
   }
@@ -1269,9 +1205,7 @@ String _stockFilterLabel(AppLocalizations l10n, String key) {
 }
 
 String _productStatusLabel(AppLocalizations l10n, int status) {
-  if (status == 1) {
-    return l10n.productsStatusActive;
-  }
+  if (status == 1) return l10n.productsStatusActive;
   return l10n.productsStatusInactive;
 }
 
@@ -1327,9 +1261,7 @@ class _ProductCard extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      product.name.isNotEmpty
-                          ? product.name
-                          : l10n.productsUnnamed,
+                      product.name.isNotEmpty ? product.name : l10n.productsUnnamed,
                       style: theme.textTheme.bodyMedium?.copyWith(
                         fontWeight: FontWeight.w700,
                       ),
@@ -1364,10 +1296,7 @@ class _ProductCard extends StatelessWidget {
                   ),
                   const SizedBox(height: 8),
                   Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 10,
-                      vertical: 6,
-                    ),
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                     decoration: BoxDecoration(
                       color: statusColor.withOpacity(0.15),
                       borderRadius: BorderRadius.circular(999),
@@ -1404,12 +1333,8 @@ class _ProductCard extends StatelessWidget {
   }
 
   String _stockLabel(AppLocalizations l10n, int? quantity) {
-    if (quantity == null) {
-      return l10n.productsStockUnknown;
-    }
-    if (quantity == 0) {
-      return l10n.productsStockOut;
-    }
+    if (quantity == null) return l10n.productsStockUnknown;
+    if (quantity == 0) return l10n.productsStockOut;
     if (quantity <= _ProductsScreenState._lowStockThreshold) {
       return l10n.productsStockLow(quantity);
     }
@@ -1419,9 +1344,7 @@ class _ProductCard extends StatelessWidget {
   Color _stockColor(int? quantity) {
     if (quantity == null) return kInkColor.withOpacity(0.5);
     if (quantity == 0) return kDangerColor;
-    if (quantity <= _ProductsScreenState._lowStockThreshold) {
-      return kWarningColor;
-    }
+    if (quantity <= _ProductsScreenState._lowStockThreshold) return kWarningColor;
     return kSuccessColor;
   }
 }

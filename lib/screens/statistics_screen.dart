@@ -145,7 +145,7 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
     showAppSnackBar(context, l10n.storeProfileAuthRequired);
     Navigator.of(context).pushNamedAndRemoveUntil(
       AppRoutes.login,
-      (route) => false,
+          (route) => false,
     );
   }
 
@@ -169,7 +169,8 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
   }
 
   String _formatCurrency(double value, String currency) {
-    final rounded = value.toStringAsFixed(value.truncateToDouble() == value ? 0 : 2);
+    final rounded =
+    value.toStringAsFixed(value.truncateToDouble() == value ? 0 : 2);
     if (currency.isEmpty) {
       return rounded;
     }
@@ -277,12 +278,12 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
     final trendData = (sellerStats?.trend ?? const <StatsTrendPoint>[])
         .map(
           (point) => _TrendPoint(
-            label: point.label,
-            revenue: point.revenue,
-            orders: point.orders,
-            customers: point.customers,
-          ),
-        )
+        label: point.label,
+        revenue: point.revenue,
+        orders: point.orders,
+        customers: point.customers,
+      ),
+    )
         .toList();
 
     final categoryPalette = const [
@@ -298,36 +299,37 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
         .entries
         .map(
           (entry) => _CategoryData(
-            entry.value.name,
-            entry.value.percentage,
-            categoryPalette[entry.key % categoryPalette.length],
-          ),
-        )
+        entry.value.name,
+        entry.value.percentage,
+        categoryPalette[entry.key % categoryPalette.length],
+      ),
+    )
         .toList();
 
     final monthlyData = (sellerStats?.monthly ?? const <StatsMonthly>[])
         .map(
           (item) => _MonthlyData(
-            item.label,
-            item.revenue,
-            item.orders,
-          ),
-        )
+        item.label,
+        item.revenue,
+        item.orders,
+      ),
+    )
         .toList();
 
-    final topProducts = (sellerStats?.topProducts ?? const <StatsTopProduct>[])
+    final topProducts =
+    (sellerStats?.topProducts ?? const <StatsTopProduct>[])
         .asMap()
         .entries
         .map(
           (entry) => _TopProduct(
-            name: entry.value.name,
-            category: entry.value.category,
-            soldLabel: l10n.statsSoldCount(entry.value.sold),
-            revenueLabel: _formatCurrency(entry.value.revenue, currency),
-            trend: _formatChange(entry.value.trendPct),
-            accent: _accentForIndex(entry.key),
-          ),
-        )
+        name: entry.value.name,
+        category: entry.value.category,
+        soldLabel: l10n.statsSoldCount(entry.value.sold),
+        revenueLabel: _formatCurrency(entry.value.revenue, currency),
+        trend: _formatChange(entry.value.trendPct),
+        accent: _accentForIndex(entry.key),
+      ),
+    )
         .toList();
 
     final snapshotCards = [
@@ -362,12 +364,17 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
     final earnings = shopStats?.earnings;
 
     return Scaffold(
+      extendBody: true,
+      backgroundColor: kSurfaceColor,
       appBar: const SellerAppBar(),
       drawer: const SellerDrawer(),
       body: SafeArea(
         top: false,
+        bottom: false,
         child: SingleChildScrollView(
-          padding: const EdgeInsets.only(bottom: 24),
+          padding: EdgeInsets.only(
+            bottom: SellerBottomBar.bodyBottomPadding(context),
+          ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -377,7 +384,6 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
                   color: kBrandColor,
                   backgroundColor: Colors.transparent,
                 ),
-              // Header Section
               Padding(
                 padding: const EdgeInsets.fromLTRB(24, 12, 24, 16),
                 child: FormSectionHeader(
@@ -385,8 +391,6 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
                   subtitle: l10n.statsSubtitle,
                 ),
               ),
-
-              // Time Range Selector
               Padding(
                 padding: const EdgeInsets.only(left: 24, bottom: 16),
                 child: SingleChildScrollView(
@@ -422,8 +426,6 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
                   ),
                 ),
               ),
-
-              // Key Metrics Grid
               Padding(
                 padding: const EdgeInsets.fromLTRB(24, 0, 24, 12),
                 child: FormSectionHeader(
@@ -445,17 +447,16 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
                       children: snapshotCards
                           .map(
                             (item) => SizedBox(
-                              width: itemWidth,
-                              child: _SnapshotCard(stat: item),
-                            ),
-                          )
+                          width: itemWidth,
+                          child: _SnapshotCard(stat: item),
+                        ),
+                      )
                           .toList(),
                     );
                   },
                 ),
               ),
               const SizedBox(height: 24),
-
               Padding(
                 padding: const EdgeInsets.fromLTRB(24, 0, 24, 12),
                 child: FormSectionHeader(
@@ -506,31 +507,37 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
                       Expanded(
                         child: _StatPair(
                           title: l10n.statsShopEarningsApprovedLabel,
-                          value: _formatCurrency(earnings?.approved ?? 0, currency),
+                          value: _formatCurrency(
+                            earnings?.approved ?? 0,
+                            currency,
+                          ),
                         ),
                       ),
                       const SizedBox(width: 12),
                       Expanded(
                         child: _StatPair(
                           title: l10n.statsShopEarningsPendingLabel,
-                          value: _formatCurrency(earnings?.pending ?? 0, currency),
+                          value: _formatCurrency(
+                            earnings?.pending ?? 0,
+                            currency,
+                          ),
                         ),
                       ),
                       const SizedBox(width: 12),
                       Expanded(
                         child: _StatPair(
                           title: l10n.statsShopEarningsRefundedLabel,
-                          value: _formatCurrency(earnings?.refunded ?? 0, currency),
+                          value: _formatCurrency(
+                            earnings?.refunded ?? 0,
+                            currency,
+                          ),
                         ),
                       ),
                     ],
                   ),
                 ),
               ),
-
               const SizedBox(height: 24),
-
-              // Key Metrics Grid
               Padding(
                 padding: const EdgeInsets.fromLTRB(24, 0, 24, 12),
                 child: FormSectionHeader(
@@ -543,26 +550,25 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
                 child: LayoutBuilder(
                   builder: (context, constraints) {
                     final crossAxisCount = constraints.maxWidth > 600 ? 3 : 2;
-                    final itemWidth = (constraints.maxWidth - (crossAxisCount - 1) * 12) / crossAxisCount;
+                    final itemWidth =
+                        (constraints.maxWidth - (crossAxisCount - 1) * 12) /
+                            crossAxisCount;
                     return Wrap(
                       spacing: 12,
                       runSpacing: 12,
                       children: metrics
                           .map(
                             (metric) => SizedBox(
-                              width: itemWidth,
-                              child: _EnhancedStatMetricCard(metric: metric),
-                            ),
-                          )
+                          width: itemWidth,
+                          child: _EnhancedStatMetricCard(metric: metric),
+                        ),
+                      )
                           .toList(),
                     );
                   },
                 ),
               ),
-
               const SizedBox(height: 24),
-
-              // Revenue Trend Chart
               Padding(
                 padding: const EdgeInsets.fromLTRB(24, 0, 24, 12),
                 child: FormSectionHeader(
@@ -613,10 +619,7 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
                   ),
                 ),
               ),
-
               const SizedBox(height: 24),
-
-              // Sales by Category Pie Chart
               Padding(
                 padding: const EdgeInsets.fromLTRB(24, 0, 24, 12),
                 child: SectionHeader(
@@ -666,10 +669,7 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
                   ),
                 ),
               ),
-
               const SizedBox(height: 24),
-
-              // Monthly Performance Bar Chart
               Padding(
                 padding: const EdgeInsets.fromLTRB(24, 0, 24, 12),
                 child: SectionHeader(
@@ -696,10 +696,7 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
                   ),
                 ),
               ),
-
               const SizedBox(height: 24),
-
-              // Top Products Section
               SectionHeader(
                 title: l10n.statsTopProductsTitle,
                 actionLabel: l10n.homeViewAllAction,
@@ -715,40 +712,43 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
                   ),
                   child: topProducts.isEmpty
                       ? Text(
-                          l10n.statsNoData,
-                          style: theme.textTheme.bodySmall?.copyWith(
-                            color: kInkColor.withValues(alpha: 0.6),
-                          ),
-                        )
+                    l10n.statsNoData,
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: kInkColor.withValues(alpha: 0.6),
+                    ),
+                  )
                       : Column(
-                          children: List.generate(topProducts.length, (index) {
-                            final product = topProducts[index];
-                            return Column(
-                              children: [
-                                _EnhancedTopProductTile(product: product),
-                                if (index != topProducts.length - 1)
-                                  Padding(
-                                    padding: const EdgeInsets.symmetric(
-                                      vertical: 12,
-                                    ),
-                                    child: Divider(
-                                      height: 1,
-                                      color: kInkColor.withValues(alpha: 0.1),
-                                    ),
-                                  ),
-                              ],
-                            );
-                          }),
-                        ),
+                    children: List.generate(topProducts.length, (index) {
+                      final product = topProducts[index];
+                      return Column(
+                        children: [
+                          _EnhancedTopProductTile(product: product),
+                          if (index != topProducts.length - 1)
+                            Padding(
+                              padding: const EdgeInsets.symmetric(
+                                vertical: 12,
+                              ),
+                              child: Divider(
+                                height: 1,
+                                color: kInkColor.withValues(alpha: 0.1),
+                              ),
+                            ),
+                        ],
+                      );
+                    }),
+                  ),
                 ),
               ),
             ],
           ),
         ),
       ),
-      bottomNavigationBar: SellerBottomBar(
-        selectedIndex: 4,
-        onTap: (index) => handleNavTap(context, index),
+      bottomNavigationBar: Material(
+        type: MaterialType.transparency,
+        child: SellerBottomBar(
+          selectedIndex: 4,
+          onTap: (index) => handleNavTap(context, index),
+        ),
       ),
     );
   }
@@ -1080,8 +1080,7 @@ class _RevenueTrendChart extends StatelessWidget {
       );
     }
 
-    final maxRevenue =
-        points.map((p) => p.revenue).fold<double>(0, math.max);
+    final maxRevenue = points.map((p) => p.revenue).fold<double>(0, math.max);
     final maxValue = maxRevenue > 0 ? maxRevenue * 1.2 : 1.0;
 
     return LineChart(
@@ -1143,7 +1142,6 @@ class _RevenueTrendChart extends StatelessWidget {
         minY: 0,
         maxY: maxValue,
         lineBarsData: [
-          // Revenue Line
           LineChartBarData(
             spots: points.asMap().entries.map((entry) {
               return FlSpot(entry.key.toDouble(), entry.value.revenue);
@@ -1168,10 +1166,12 @@ class _RevenueTrendChart extends StatelessWidget {
               color: kBrandColor.withValues(alpha: 0.1),
             ),
           ),
-          // Orders Line
           LineChartBarData(
             spots: points.asMap().entries.map((entry) {
-              return FlSpot(entry.key.toDouble(), entry.value.orders * 30); // Scale orders to match revenue scale
+              return FlSpot(
+                entry.key.toDouble(),
+                entry.value.orders * 30,
+              );
             }).toList(),
             isCurved: true,
             color: kInfoColor,
@@ -1189,10 +1189,12 @@ class _RevenueTrendChart extends StatelessWidget {
               },
             ),
           ),
-          // Customers Line
           LineChartBarData(
             spots: points.asMap().entries.map((entry) {
-              return FlSpot(entry.key.toDouble(), entry.value.customers * 60); // Scale customers
+              return FlSpot(
+                entry.key.toDouble(),
+                entry.value.customers * 60,
+              );
             }).toList(),
             isCurved: true,
             color: const Color(0xFF9C27B0),
@@ -1251,7 +1253,7 @@ class _CategoryPieChart extends StatelessWidget {
               fontWeight: FontWeight.bold,
               color: Colors.white,
             ),
-            borderSide: BorderSide(
+            borderSide: const BorderSide(
               color: Colors.white,
               width: 2,
             ),
@@ -1364,7 +1366,7 @@ class _MonthlyPerformanceChart extends StatelessWidget {
                 borderRadius: BorderRadius.circular(4),
               ),
               BarChartRodData(
-                toY: item.orders * 30, // Scale orders for visibility
+                toY: item.orders * 30,
                 color: kInfoColor,
                 width: 16,
                 borderRadius: BorderRadius.circular(4),
@@ -1456,15 +1458,20 @@ class _EnhancedTopProductTile extends StatelessWidget {
                     ),
                   ),
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                    padding:
+                    const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                     decoration: BoxDecoration(
-                      color: product.trend.startsWith('+') ? kSuccessColor.withValues(alpha: 0.1) : kWarningColor.withValues(alpha: 0.1),
+                      color: product.trend.startsWith('+')
+                          ? kSuccessColor.withValues(alpha: 0.1)
+                          : kWarningColor.withValues(alpha: 0.1),
                       borderRadius: BorderRadius.circular(8),
                     ),
                     child: Text(
                       product.trend,
                       style: theme.textTheme.labelSmall?.copyWith(
-                        color: product.trend.startsWith('+') ? kSuccessColor : kWarningColor,
+                        color: product.trend.startsWith('+')
+                            ? kSuccessColor
+                            : kWarningColor,
                         fontWeight: FontWeight.w600,
                       ),
                     ),

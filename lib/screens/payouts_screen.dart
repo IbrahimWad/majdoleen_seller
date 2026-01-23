@@ -202,7 +202,7 @@ class _PayoutsScreenState extends State<PayoutsScreen> {
     return _payouts.where((payout) {
       if (query.isNotEmpty) {
         final haystack =
-            '${payout.id} ${payout.method} ${payout.reference}'.toLowerCase();
+        '${payout.id} ${payout.method} ${payout.reference}'.toLowerCase();
         if (!haystack.contains(query)) {
           return false;
         }
@@ -275,12 +275,17 @@ class _PayoutsScreenState extends State<PayoutsScreen> {
     ];
 
     return Scaffold(
+      extendBody: true,
+      backgroundColor: kSurfaceColor,
       appBar: const SellerAppBar(),
       drawer: const SellerDrawer(),
       body: SafeArea(
         top: false,
+        bottom: false,
         child: SingleChildScrollView(
-          padding: const EdgeInsets.only(bottom: 24),
+          padding: EdgeInsets.only(
+            bottom: SellerBottomBar.bodyBottomPadding(context),
+          ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -436,10 +441,10 @@ class _PayoutsScreenState extends State<PayoutsScreen> {
                       children: _insights
                           .map(
                             (insight) => SizedBox(
-                              width: cardWidth,
-                              child: _PayoutInsightCard(insight),
-                            ),
-                          )
+                          width: cardWidth,
+                          child: _PayoutInsightCard(insight),
+                        ),
+                      )
                           .toList(),
                     );
                   },
@@ -511,8 +516,7 @@ class _PayoutsScreenState extends State<PayoutsScreen> {
                           value: 0.68,
                           minHeight: 8,
                           backgroundColor: kBrandColor.withOpacity(0.15),
-                          valueColor:
-                              const AlwaysStoppedAnimation(kBrandColor),
+                          valueColor: const AlwaysStoppedAnimation(kBrandColor),
                         ),
                       ),
                       const SizedBox(height: 12),
@@ -520,10 +524,10 @@ class _PayoutsScreenState extends State<PayoutsScreen> {
                         children: _schedule
                             .map(
                               (item) => Padding(
-                                padding: const EdgeInsets.only(bottom: 12),
-                                child: _PayoutScheduleRow(item),
-                              ),
-                            )
+                            padding: const EdgeInsets.only(bottom: 12),
+                            child: _PayoutScheduleRow(item),
+                          ),
+                        )
                             .toList(),
                       ),
                     ],
@@ -720,10 +724,10 @@ class _PayoutsScreenState extends State<PayoutsScreen> {
                             children: kpis
                                 .map(
                                   (kpi) => SizedBox(
-                                    width: itemWidth,
-                                    child: _PayoutKpiCard(kpi),
-                                  ),
-                                )
+                                width: itemWidth,
+                                child: _PayoutKpiCard(kpi),
+                              ),
+                            )
                                 .toList(),
                           );
                         },
@@ -752,14 +756,14 @@ class _PayoutsScreenState extends State<PayoutsScreen> {
                     suffixIcon: _searchQuery.isEmpty
                         ? null
                         : IconButton(
-                            onPressed: () {
-                              _searchController.clear();
-                              setState(() {
-                                _searchQuery = '';
-                              });
-                            },
-                            icon: const Icon(Icons.close_rounded),
-                          ),
+                      onPressed: () {
+                        _searchController.clear();
+                        setState(() {
+                          _searchQuery = '';
+                        });
+                      },
+                      icon: const Icon(Icons.close_rounded),
+                    ),
                   ),
                 ),
               ),
@@ -841,10 +845,10 @@ class _PayoutsScreenState extends State<PayoutsScreen> {
                     children: payouts
                         .map(
                           (entry) => Padding(
-                            padding: const EdgeInsets.only(bottom: 12),
-                            child: _PayoutActivityCard(entry),
-                          ),
-                        )
+                        padding: const EdgeInsets.only(bottom: 12),
+                        child: _PayoutActivityCard(entry),
+                      ),
+                    )
                         .toList(),
                   ),
                 ),
@@ -852,9 +856,12 @@ class _PayoutsScreenState extends State<PayoutsScreen> {
           ),
         ),
       ),
-      bottomNavigationBar: SellerBottomBar(
-        selectedIndex: 3,
-        onTap: (index) => handleNavTap(context, index),
+      bottomNavigationBar: Material(
+        type: MaterialType.transparency,
+        child: SellerBottomBar(
+          selectedIndex: 3,
+          onTap: (index) => handleNavTap(context, index),
+        ),
       ),
     );
   }
@@ -1136,28 +1143,28 @@ class _PayoutBarChart extends StatelessWidget {
         children: data
             .map(
               (bar) => Expanded(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.end,
-                  children: [
-                    Container(
-                      height: maxBarHeight * bar.value,
-                      width: 16,
-                      decoration: BoxDecoration(
-                        color: kBrandColor.withOpacity(0.7),
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      bar.label,
-                      style: theme.textTheme.labelSmall?.copyWith(
-                        color: kInkColor.withOpacity(0.6),
-                      ),
-                    ),
-                  ],
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                Container(
+                  height: maxBarHeight * bar.value,
+                  width: 16,
+                  decoration: BoxDecoration(
+                    color: kBrandColor.withOpacity(0.7),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
                 ),
-              ),
-            )
+                const SizedBox(height: 8),
+                Text(
+                  bar.label,
+                  style: theme.textTheme.labelSmall?.copyWith(
+                    color: kInkColor.withOpacity(0.6),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        )
             .toList(),
       ),
     );

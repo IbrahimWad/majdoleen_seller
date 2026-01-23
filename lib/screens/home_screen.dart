@@ -19,6 +19,7 @@ class HomeScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final l10n = AppLocalizations.of(context);
+
     final metrics = [
       _Metric(
         title: l10n.homeTodaySalesTitle,
@@ -122,105 +123,119 @@ class HomeScreen extends StatelessWidget {
     ];
 
     return Scaffold(
+      extendBody: true,
+      backgroundColor: Colors.transparent,
+
       appBar: const SellerAppBar(),
       drawer: const SellerDrawer(),
-      body: SafeArea(
-        top: false,
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.only(bottom: 24),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              _HomeHeader(),
-              Padding(
-                padding: const EdgeInsets.fromLTRB(24, 20, 24, 12),
-                child: Text(
-                  l10n.homeTodayOverviewTitle,
-                  style: theme.textTheme.titleLarge,
+
+      body: Container(
+        color: theme.scaffoldBackgroundColor,
+        child: SafeArea(
+          top: false,
+          bottom: false,
+          child: SingleChildScrollView(
+            padding: EdgeInsets.only(
+              bottom: SellerBottomBar.bodyBottomPadding(context),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const _HomeHeader(),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(24, 20, 24, 12),
+                  child: Text(
+                    l10n.homeTodayOverviewTitle,
+                    style: theme.textTheme.titleLarge,
+                  ),
                 ),
-              ),
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 24),
-                child: GridView.count(
-                  crossAxisCount: 2,
-                  mainAxisSpacing: 12,
-                  crossAxisSpacing: 12,
-                  childAspectRatio: 1.25,
-                  shrinkWrap: true,
-                  physics: const NeverScrollableScrollPhysics(),
-                  children:
-                      metrics.map((metric) => _MetricCard(metric)).toList(),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 24),
+                  child: GridView.count(
+                    crossAxisCount: 2,
+                    mainAxisSpacing: 12,
+                    crossAxisSpacing: 12,
+                    childAspectRatio: 1.25,
+                    shrinkWrap: true,
+                    physics: const NeverScrollableScrollPhysics(),
+                    children: metrics.map((metric) => _MetricCard(metric)).toList(),
+                  ),
                 ),
-              ),
-              const SizedBox(height: 24),
-              SectionHeader(
-                title: l10n.homeQuickActionsTitle,
-                actionLabel: l10n.homeQuickActionsAction,
-              ),
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 24),
-                child: LayoutBuilder(
-                  builder: (context, constraints) {
-                    final tileWidth = (constraints.maxWidth - 12) / 2;
-                    return Wrap(
-                      spacing: 12,
-                      runSpacing: 12,
-                      children: actions
-                          .map(
-                            (action) => SizedBox(
-                              width: tileWidth,
-                              child: _QuickActionTile(action),
-                            ),
-                          )
-                          .toList(),
-                    );
-                  },
+                const SizedBox(height: 24),
+                SectionHeader(
+                  title: l10n.homeQuickActionsTitle,
+                  actionLabel: l10n.homeQuickActionsAction,
                 ),
-              ),
-              const SizedBox(height: 24),
-              SectionHeader(
-                title: l10n.homeNewOrdersTitle,
-                actionLabel: l10n.homeViewAllAction,
-                onActionTap: () => handleNavTap(context, 0),
-              ),
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 24),
-                child: Column(
-                  children: orders
-                      .map(
-                        (order) => Padding(
-                          padding: const EdgeInsets.only(bottom: 12),
-                          child: _OrderCard(order),
-                        ),
-                      )
-                      .toList(),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 24),
+                  child: LayoutBuilder(
+                    builder: (context, constraints) {
+                      final tileWidth = (constraints.maxWidth - 12) / 2;
+                      return Wrap(
+                        spacing: 12,
+                        runSpacing: 12,
+                        children: actions
+                            .map(
+                              (action) => SizedBox(
+                            width: tileWidth,
+                            child: _QuickActionTile(action),
+                          ),
+                        )
+                            .toList(),
+                      );
+                    },
+                  ),
                 ),
-              ),
-              const SizedBox(height: 12),
-              SectionHeader(
-                title: l10n.homeInventoryAlertsTitle,
-                actionLabel: l10n.homeRestockAction,
-              ),
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 24),
-                child: Column(
-                  children: inventory
-                      .map(
-                        (item) => Padding(
-                          padding: const EdgeInsets.only(bottom: 12),
-                          child: _InventoryCard(item),
-                        ),
-                      )
-                      .toList(),
+                const SizedBox(height: 24),
+                SectionHeader(
+                  title: l10n.homeNewOrdersTitle,
+                  actionLabel: l10n.homeViewAllAction,
+                  onActionTap: () => handleNavTap(context, 0),
                 ),
-              ),
-            ],
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 24),
+                  child: Column(
+                    children: orders
+                        .map(
+                          (order) => Padding(
+                        padding: const EdgeInsets.only(bottom: 12),
+                        child: _OrderCard(order),
+                      ),
+                    )
+                        .toList(),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                SectionHeader(
+                  title: l10n.homeInventoryAlertsTitle,
+                  actionLabel: l10n.homeRestockAction,
+                ),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 24),
+                  child: Column(
+                    children: inventory
+                        .map(
+                          (item) => Padding(
+                        padding: const EdgeInsets.only(bottom: 12),
+                        child: _InventoryCard(item),
+                      ),
+                    )
+                        .toList(),
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       ),
-      bottomNavigationBar: SellerBottomBar(
-        selectedIndex: 2,
-        onTap: (index) => handleNavTap(context, index),
+
+
+      bottomNavigationBar: Material(
+        type: MaterialType.transparency,
+        child: SellerBottomBar(
+          selectedIndex: 2,
+          onTap: (index) => handleNavTap(context, index),
+        ),
       ),
     );
   }
@@ -382,9 +397,10 @@ class _MetricCard extends StatelessWidget {
       builder: (context, constraints) {
         final maxHeight = constraints.maxHeight;
         final effectiveHeight = maxHeight / textScaleFactor;
-        final t =
-            ((effectiveHeight - 120) / 30).clamp(0.0, 1.0).toDouble();
+        final t = ((effectiveHeight - 120) / 30).clamp(0.0, 1.0).toDouble();
+
         double lerp(double a, double b) => a + (b - a) * t;
+
         final padding = lerp(10.0, 14.0);
         final iconBoxSize = lerp(28.0, 34.0);
         final iconSize = lerp(18.0, 20.0);
