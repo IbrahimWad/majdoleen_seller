@@ -31,14 +31,46 @@ class AppLocalizations {
       'rememberMe': 'Remember me',
       'forgotPassword': 'Forgot password?',
       'forgotPasswordTitle': 'Reset your password',
-      'forgotPasswordSubtitle': 'Enter your email to receive a reset link.',
-      'forgotPasswordAction': 'Send reset link',
-      'forgotPasswordHelper':
-          'Check your spam folder if you do not see the email.',
+      'forgotPasswordSubtitle': 'Enter your phone number to receive an OTP.',
+      'forgotPasswordPhoneRequired': 'Please enter your phone number.',
+      'forgotPasswordAction': 'Send OTP',
+      'forgotPasswordHelper': 'We will send a 6-digit code to your phone.',
       'forgotPasswordRememberPrompt': 'Remembered your password?',
       'forgotPasswordBackToLogin': 'Back to login',
-      'forgotPasswordEmailRequired': 'Please enter your email.',
-      'forgotPasswordSentMessage': 'Reset link sent. Check your email.',
+      'forgotPasswordOtpSent': 'OTP sent successfully. Check your phone.',
+      'forgotPasswordOtpResent': 'OTP resent. Check your phone.',
+      'forgotPasswordFailed': 'Failed to send OTP. Please try again.',
+      'forgotPasswordVerifyTitle': 'Verify your phone',
+      'forgotPasswordVerifySubtitle': 'Enter the 6-digit code we sent to {phone}',
+      'forgotPasswordVerifyAction': 'Verify and reset',
+      'forgotPasswordVerifyHelper': 'Enter the code to proceed with password reset.',
+      'forgotPasswordVerifyNoCodePrompt': 'Didn\'t receive the code?',
+      'forgotPasswordResendAction': 'Resend OTP',
+      'forgotPasswordResendIn': 'Resend OTP in {seconds}s',
+      'forgotPasswordOtpRequired': 'Please enter the 6-digit code.',
+      'forgotPasswordOtpInvalid': 'Invalid OTP. Please try again.',
+      'forgotPasswordOtpExpired': 'OTP has expired. Please request a new one.',
+      'forgotPasswordOtpVerified': 'Code verified. Proceed to reset password.',
+      'forgotPasswordOtpVerificationFailed': 'OTP verification failed. Please try again.',
+      'resetPasswordTitle': 'Set new password',
+      'resetPasswordSubtitle': 'Enter your new password to regain access.',
+      'resetPasswordLabel': 'New password',
+      'resetPasswordHint': 'Minimum 6 characters',
+      'resetPasswordConfirmLabel': 'Confirm password',
+      'resetPasswordConfirmHint': 'Re-enter your password',
+      'resetPasswordAction': 'Reset password',
+      'resetPasswordHelper': 'Your password must be at least 6 characters long.',
+      'resetPasswordRequired': 'Please enter a password.',
+      'resetPasswordMinLength': 'Password must be at least 6 characters.',
+      'resetPasswordConfirmRequired': 'Please confirm your password.',
+      'resetPasswordMismatch': 'Passwords do not match.',
+      'resetPasswordSuccess': 'Password reset successfully. Redirecting to login...',
+      'resetPasswordFailed': 'Password reset failed. Please try again.',
+      'resetPasswordInvalidToken': 'Invalid reset token. Please request a new password reset.',
+      'resetPasswordExpiredToken': 'Reset token has expired. Please request a new password reset.',
+      'resetPasswordTokenError': 'Token error. Please request a new password reset.',
+      'resetPasswordBackPrompt': 'Know your password?',
+      'resetPasswordBackToLogin': 'Back to login',
       'noAccountPrompt': 'No account?',
       'registerAction': 'Sign up',
       'registerTitle': 'Register',
@@ -699,15 +731,46 @@ class AppLocalizations {
       'rememberMe': 'تذكرني',
       'forgotPassword': 'نسيت كلمة المرور؟',
       'forgotPasswordTitle': 'استعادة كلمة المرور',
-      'forgotPasswordSubtitle': 'أدخل بريدك الإلكتروني لاستلام رابط إعادة التعيين.',
-      'forgotPasswordAction': 'إرسال رابط إعادة التعيين',
-      'forgotPasswordHelper':
-          'تحقق من البريد غير الهام إذا لم تجد الرسالة.',
+      'forgotPasswordSubtitle': 'أدخل رقم هاتفك لاستقبال رمز التحقق.',
+      'forgotPasswordPhoneRequired': 'يرجى إدخال رقم الهاتف.',
+      'forgotPasswordAction': 'إرسال الرمز',
+      'forgotPasswordHelper': 'سنرسل رمز 6 أرقام إلى هاتفك.',
       'forgotPasswordRememberPrompt': 'تذكرت كلمة المرور؟',
       'forgotPasswordBackToLogin': 'العودة لتسجيل الدخول',
-      'forgotPasswordEmailRequired': 'يرجى إدخال البريد الإلكتروني.',
-      'forgotPasswordSentMessage':
-          'تم إرسال رابط إعادة التعيين. تحقق من بريدك الإلكتروني.',
+      'forgotPasswordOtpSent': 'تم إرسال الرمز بنجاح. تحقق من هاتفك.',
+      'forgotPasswordOtpResent': 'تم إعادة إرسال الرمز. تحقق من هاتفك.',
+      'forgotPasswordFailed': 'فشل إرسال الرمز. يرجى المحاولة مرة أخرى.',
+      'forgotPasswordVerifyTitle': 'تحقق من رقم هاتفك',
+      'forgotPasswordVerifySubtitle': 'أدخل رمز الـ 6 أرقام الذي أرسلناه إلى {phone}',
+      'forgotPasswordVerifyAction': 'التحقق وتعيين كلمة مرور جديدة',
+      'forgotPasswordVerifyHelper': 'أدخل الرمز للمتابعة مع إعادة تعيين كلمة المرور.',
+      'forgotPasswordVerifyNoCodePrompt': 'لم تستقبل الرمز؟',
+      'forgotPasswordResendAction': 'إعادة إرسال الرمز',
+      'forgotPasswordResendIn': 'إعادة إرسال الرمز في {seconds}ث',
+      'forgotPasswordOtpRequired': 'يرجى إدخال رمز الـ 6 أرقام.',
+      'forgotPasswordOtpInvalid': 'رمز غير صحيح. يرجى المحاولة مرة أخرى.',
+      'forgotPasswordOtpExpired': 'انتهت صلاحية الرمز. يرجى طلب رمز جديد.',
+      'forgotPasswordOtpVerified': 'تم التحقق من الرمز. انتقل إلى تعيين كلمة المرور.',
+      'forgotPasswordOtpVerificationFailed': 'فشل التحقق من الرمز. يرجى المحاولة مرة أخرى.',
+      'resetPasswordTitle': 'تعيين كلمة المرور الجديدة',
+      'resetPasswordSubtitle': 'أدخل كلمة المرور الجديدة للوصول إلى حسابك.',
+      'resetPasswordLabel': 'كلمة المرور الجديدة',
+      'resetPasswordHint': 'حد أدنى 6 أحرف',
+      'resetPasswordConfirmLabel': 'تأكيد كلمة المرور',
+      'resetPasswordConfirmHint': 'أعد إدخال كلمة المرور',
+      'resetPasswordAction': 'تعيين كلمة المرور',
+      'resetPasswordHelper': 'يجب أن تكون كلمة المرور 6 أحرف على الأقل.',
+      'resetPasswordRequired': 'يرجى إدخال كلمة المرور.',
+      'resetPasswordMinLength': 'يجب أن تكون كلمة المرور 6 أحرف على الأقل.',
+      'resetPasswordConfirmRequired': 'يرجى تأكيد كلمة المرور.',
+      'resetPasswordMismatch': 'كلمات المرور غير متطابقة.',
+      'resetPasswordSuccess': 'تم تعيين كلمة المرور بنجاح. جاري إعادة التوجيه إلى تسجيل الدخول...',
+      'resetPasswordFailed': 'فشل تعيين كلمة المرور. يرجى المحاولة مرة أخرى.',
+      'resetPasswordInvalidToken': 'رمز غير صحيح. يرجى طلب تعيين كلمة مرور جديد.',
+      'resetPasswordExpiredToken': 'انتهت صلاحية رمز التعيين. يرجى طلب تعيين كلمة مرور جديد.',
+      'resetPasswordTokenError': 'خطأ في الرمز. يرجى طلب تعيين كلمة مرور جديد.',
+      'resetPasswordBackPrompt': 'هل تتذكر كلمة المرور؟',
+      'resetPasswordBackToLogin': 'العودة لتسجيل الدخول',
       'noAccountPrompt': 'ليس لديك حساب؟',
       'registerAction': 'إنشاء حساب',
       'registerTitle': 'إنشاء حساب',
@@ -1371,14 +1434,55 @@ class AppLocalizations {
   String get forgotPassword => _value('forgotPassword');
   String get forgotPasswordTitle => _value('forgotPasswordTitle');
   String get forgotPasswordSubtitle => _value('forgotPasswordSubtitle');
+  String get forgotPasswordPhoneRequired => _value('forgotPasswordPhoneRequired');
   String get forgotPasswordAction => _value('forgotPasswordAction');
   String get forgotPasswordHelper => _value('forgotPasswordHelper');
   String get forgotPasswordRememberPrompt =>
       _value('forgotPasswordRememberPrompt');
   String get forgotPasswordBackToLogin => _value('forgotPasswordBackToLogin');
-  String get forgotPasswordEmailRequired =>
-      _value('forgotPasswordEmailRequired');
-  String get forgotPasswordSentMessage => _value('forgotPasswordSentMessage');
+  String get forgotPasswordOtpSent => _value('forgotPasswordOtpSent');
+  String get forgotPasswordOtpResent => _value('forgotPasswordOtpResent');
+  String get forgotPasswordFailed => _value('forgotPasswordFailed');
+  String get forgotPasswordVerifyTitle => _value('forgotPasswordVerifyTitle');
+  String forgotPasswordVerifySubtitle(String phone) {
+    final template = _value('forgotPasswordVerifySubtitle');
+    return template.replaceAll('{phone}', phone);
+  }
+  String get forgotPasswordVerifyAction => _value('forgotPasswordVerifyAction');
+  String get forgotPasswordVerifyHelper => _value('forgotPasswordVerifyHelper');
+  String get forgotPasswordVerifyNoCodePrompt =>
+      _value('forgotPasswordVerifyNoCodePrompt');
+  String get forgotPasswordResendAction => _value('forgotPasswordResendAction');
+  String forgotPasswordResendIn(String seconds) {
+    final template = _value('forgotPasswordResendIn');
+    return template.replaceAll('{seconds}', seconds);
+  }
+  String get forgotPasswordOtpRequired => _value('forgotPasswordOtpRequired');
+  String get forgotPasswordOtpInvalid => _value('forgotPasswordOtpInvalid');
+  String get forgotPasswordOtpExpired => _value('forgotPasswordOtpExpired');
+  String get forgotPasswordOtpVerified => _value('forgotPasswordOtpVerified');
+  String get forgotPasswordOtpVerificationFailed =>
+      _value('forgotPasswordOtpVerificationFailed');
+  String get resetPasswordTitle => _value('resetPasswordTitle');
+  String get resetPasswordSubtitle => _value('resetPasswordSubtitle');
+  String get resetPasswordLabel => _value('resetPasswordLabel');
+  String get resetPasswordHint => _value('resetPasswordHint');
+  String get resetPasswordConfirmLabel => _value('resetPasswordConfirmLabel');
+  String get resetPasswordConfirmHint => _value('resetPasswordConfirmHint');
+  String get resetPasswordAction => _value('resetPasswordAction');
+  String get resetPasswordHelper => _value('resetPasswordHelper');
+  String get resetPasswordRequired => _value('resetPasswordRequired');
+  String get resetPasswordMinLength => _value('resetPasswordMinLength');
+  String get resetPasswordConfirmRequired =>
+      _value('resetPasswordConfirmRequired');
+  String get resetPasswordMismatch => _value('resetPasswordMismatch');
+  String get resetPasswordSuccess => _value('resetPasswordSuccess');
+  String get resetPasswordFailed => _value('resetPasswordFailed');
+  String get resetPasswordInvalidToken => _value('resetPasswordInvalidToken');
+  String get resetPasswordExpiredToken => _value('resetPasswordExpiredToken');
+  String get resetPasswordTokenError => _value('resetPasswordTokenError');
+  String get resetPasswordBackPrompt => _value('resetPasswordBackPrompt');
+  String get resetPasswordBackToLogin => _value('resetPasswordBackToLogin');
   String get noAccountPrompt => _value('noAccountPrompt');
   String get registerAction => _value('registerAction');
   String get registerTitle => _value('registerTitle');

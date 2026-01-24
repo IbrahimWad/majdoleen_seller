@@ -1,9 +1,11 @@
+import 'package:country_picker/country_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../core/app_colors.dart';
 import '../core/app_localizations.dart';
 import '../core/app_routes.dart';
+import '../services/seller_auth_service.dart';
 import '../widgets/app_snackbar.dart';
 import '../widgets/login_field.dart';
 import '../widgets/login_wave_clipper.dart';
@@ -18,26 +20,241 @@ class ForgotPasswordScreen extends StatefulWidget {
 }
 
 class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
-  final TextEditingController _emailController = TextEditingController();
-  bool _sent = false;
+  final TextEditingController _phoneController = TextEditingController();
+  final SellerAuthService _authService = SellerAuthService();
+  
+  Country? _selectedCountry;
+  bool _isLoading = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _selectedCountry = Country.parse('IQ');
+  }
 
   @override
   void dispose() {
-    _emailController.dispose();
+    _phoneController.dispose();
     super.dispose();
   }
 
-  void _sendResetLink() {
+  void _selectCountry() {
+    showCountryPicker(
+      context: context,
+      showPhoneCode: true,
+      onSelect: (country) {
+        setState(() => _selectedCountry = country);
+      },
+    );
+  }
+
+  bool _isValidE164(String value) {
+    return RegExp(r'^\+[1-9]\d{7,14}$').hasMatch(value);
+  }
+
+  String? _formatPhoneE164() {
+    final raw = _phoneController.text.trim();
+    if (raw.isEmpty) return null;
+
+    if (raw.startsWith('+')) {
+      final digits = raw.replaceAll(RegExp(r'\D'), '');
+      final e164 = '+$digits';
+      return _isValidE164(e164) ? e164 : null;
+    }
+
+    final country = _selectedCountry;
+    if (country == null) return null;
+
+    var digits = raw.replaceAll(RegExp(r'\D'), '');
+    digits = digits.replaceFirst(RegExp(r'^0+'), '');
+    if (digits.isEmpty) return null;
+
+    final e164 = '+${country.phoneCode}$digits';
+    return _isValidE164(e164) ? e164 : null;
+  }
+
+  TextStyle _forgotPasswordHintStyle(ThemeData theme) {
+    final baseStyle = theme.textTheme.bodyMedium;
+    final fontSize = (baseStyle?.fontSize ?? 14) * 0.9;
+    return (baseStyle ?? const TextStyle()).copyWith(
+      fontSize: fontSize,
+      color: kInkColor.withOpacity(0.45),
+    );
+  }
+
+  Future<void> _sendResetOtp() async {
     final l10n = AppLocalizations.of(context);
-    final email = _emailController.text.trim();
-    if (email.isEmpty) {
-      showAppSnackBar(context, l10n.forgotPasswordEmailRequired);
+    final rawPhone = _phoneController.text.trim();
+    
+    if (rawPhone.isEmpty) {
+      showAppSnackBar(context, l10n.forgotPasswordPhoneRequired);
       return;
     }
-    setState(() {
-      _sent = true;
-    });
-    showAppSnackBar(context, l10n.forgotPasswordSentMessage);
+
+    if (_selectedCountry == null && !rawPhone.startsWith('+')) {
+      showAppSnackBar(context, l10n.registerCountryCodeRequired);
+      return;
+    }
+
+    final phone = _formatPhoneE164();
+    if (phone == null) {
+      showAppSnackBar(context, l10n.verificationInvalidPhone);
+      return;
+    }
+
+    setState(() => _isLoading = true);
+    FocusScope.of(context).unfocus();
+
+    try {
+      final result = await _authService.sendForgotPasswordOtp(phone: phone);
+      
+      if (mounted) {
+        if (result['success'] == true) {
+          showAppSnackBar(context, l10n.forgotPasswordOtpSent);
+          
+          // Navigate to OTP verification screen
+          if (mounted) {
+            Navigator.of(context).pushNamed(
+              AppRoutes.forgotPasswordVerification,
+              arguments: {
+                'phone': phone,
+                'reset_token': result['reset_token'],
+              },
+            );
+          }
+        } else {
+          final error = result['error'] ?? result['message'] ?? l10n.forgotPasswordFailed;
+          showAppSnackBar(context, error.toString());
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        final l10n = AppLocalizations.of(context);
+        String message = l10n.forgotPasswordFailed;
+        
+        if (e is Exception) {
+          final errorMsg = e.toString().replaceAll('Exception: ', '');
+          message = errorMsg.isEmpty ? message : errorMsg;
+        }
+        
+        showAppSnackBar(context, message);
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
+    }
+  }
+
+  Widget _buildPhoneWithCountryCode(
+    ThemeData theme,
+    AppLocalizations l10n,
+  ) {
+    final baseLabelSize = theme.textTheme.bodyMedium?.fontSize ?? 14;
+    final labelSize = baseLabelSize * 1.15;
+    final fieldVerticalPadding = 16.0 * 1.15;
+    final codeLabel = _selectedCountry == null
+        ? l10n.registerCountryCodeShort
+        : '+${_selectedCountry!.phoneCode}';
+    final flagEmoji = _selectedCountry?.flagEmoji;
+    final hintStyle = _forgotPasswordHintStyle(theme);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          l10n.phoneLabel,
+          style: theme.textTheme.bodyMedium?.copyWith(
+            color: kInkColor.withOpacity(0.7),
+            fontWeight: FontWeight.w600,
+            fontSize: labelSize,
+          ),
+        ),
+        const SizedBox(height: 6),
+        TextFormField(
+          controller: _phoneController,
+          keyboardType: TextInputType.phone,
+          textInputAction: TextInputAction.next,
+          autofillHints: const [AutofillHints.telephoneNumber],
+          inputFormatters: [
+            FilteringTextInputFormatter.digitsOnly,
+            LengthLimitingTextInputFormatter(15),
+          ],
+          enabled: !_isLoading,
+          onFieldSubmitted: (_) => _sendResetOtp(),
+          decoration: InputDecoration(
+            hintText: l10n.phoneHint,
+            hintStyle: hintStyle,
+            prefixIconConstraints: const BoxConstraints(minHeight: 0, minWidth: 0),
+            prefixIcon: Padding(
+              padding: const EdgeInsetsDirectional.only(start: 0, end: 12),
+              child: Material(
+                color: Colors.transparent,
+                child: InkWell(
+                  borderRadius: BorderRadius.circular(10),
+                  onTap: _selectCountry,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 6,
+                    ),
+                    decoration: BoxDecoration(
+                      color: kBrandColor.withOpacity(0.12),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        if (flagEmoji != null) ...[
+                          Text(
+                            flagEmoji,
+                            style: theme.textTheme.bodyMedium?.copyWith(
+                              fontWeight: FontWeight.w700,
+                              fontSize: labelSize,
+                            ),
+                          ),
+                          const SizedBox(width: 6),
+                        ] else ...[
+                          const Icon(
+                            Icons.public,
+                            size: 16,
+                            color: kBrandColor,
+                          ),
+                          const SizedBox(width: 6),
+                        ],
+                        Text(
+                          codeLabel,
+                          style: theme.textTheme.bodyMedium?.copyWith(
+                            fontWeight: FontWeight.w700,
+                            color: kBrandColor,
+                          ),
+                        ),
+                        const SizedBox(width: 4),
+                        const Icon(
+                          Icons.expand_more,
+                          size: 18,
+                          color: kBrandColor,
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ),
+            contentPadding: EdgeInsets.symmetric(vertical: fieldVerticalPadding),
+            enabledBorder: UnderlineInputBorder(
+              borderSide: BorderSide(
+                color: kInkColor.withOpacity(0.2),
+                width: 1.2,
+              ),
+            ),
+            focusedBorder: const UnderlineInputBorder(
+              borderSide: BorderSide(color: kBrandColor, width: 2),
+            ),
+          ),
+        ),
+      ],
+    );
   }
 
   @override
@@ -130,44 +347,8 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                                   1.05,
                         ),
                       ),
-                      const SizedBox(height: 20),
-                      if (_sent)
-                        Container(
-                          margin: const EdgeInsets.only(bottom: 16),
-                          padding: const EdgeInsets.all(12),
-                          decoration: BoxDecoration(
-                            color: kSuccessColor.withOpacity(0.12),
-                            borderRadius: BorderRadius.circular(16),
-                          ),
-                          child: Row(
-                            children: [
-                              const Icon(
-                                Icons.mark_email_read_outlined,
-                                color: kSuccessColor,
-                              ),
-                              const SizedBox(width: 10),
-                              Expanded(
-                                child: Text(
-                                  l10n.forgotPasswordSentMessage,
-                                  style: theme.textTheme.bodySmall?.copyWith(
-                                    color: kInkColor.withOpacity(0.75),
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      LoginField(
-                        controller: _emailController,
-                        label: l10n.emailLabel,
-                        hint: l10n.emailHint,
-                        icon: Icons.email_outlined,
-                        keyboardType: TextInputType.emailAddress,
-                        textInputAction: TextInputAction.done,
-                        onSubmitted: (_) => _sendResetLink(),
-                        autofillHints: const [AutofillHints.email],
-                      ),
+                      const SizedBox(height: 24),
+                      _buildPhoneWithCountryCode(theme, l10n),
                       const SizedBox(height: 16),
                       Container(
                         padding: const EdgeInsets.all(12),
@@ -219,18 +400,30 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                             color: Colors.transparent,
                             child: InkWell(
                               borderRadius: BorderRadius.circular(18),
-                              onTap: _sendResetLink,
+                              onTap: _isLoading ? null : _sendResetOtp,
                               child: Padding(
                                 padding:
                                     const EdgeInsets.symmetric(vertical: 16),
                                 child: Center(
-                                  child: Text(
-                                    l10n.forgotPasswordAction,
-                                    style: theme.textTheme.titleLarge?.copyWith(
-                                      color: Colors.white,
-                                      fontWeight: FontWeight.w700,
-                                    ),
-                                  ),
+                                  child: _isLoading
+                                      ? const SizedBox(
+                                          height: 20,
+                                          width: 20,
+                                          child: CircularProgressIndicator(
+                                            valueColor:
+                                                AlwaysStoppedAnimation<Color>(
+                                                    Colors.white),
+                                            strokeWidth: 2,
+                                          ),
+                                        )
+                                      : Text(
+                                          l10n.forgotPasswordAction,
+                                          style: theme.textTheme.titleLarge
+                                              ?.copyWith(
+                                            color: Colors.white,
+                                            fontWeight: FontWeight.w700,
+                                          ),
+                                        ),
                                 ),
                               ),
                             ),
