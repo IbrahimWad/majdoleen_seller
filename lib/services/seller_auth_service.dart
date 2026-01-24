@@ -262,6 +262,9 @@ class SellerAuthService {
     String? metaTitle,
     String? metaDescription,
     String? metaImage,
+    double? latitude,
+    double? longitude,
+    String? address,
   }) async {
     final payload = <String, dynamic>{
       'shop_name': shopName,
@@ -289,6 +292,13 @@ class SellerAuthService {
     }
     if (metaImage != null && metaImage.isNotEmpty) {
       payload['meta_image'] = metaImage;
+    }
+    if (latitude != null && longitude != null) {
+      payload['latitude'] = latitude;
+      payload['longtiued'] = longitude; // API has typo: "longtiued" not "longitude"
+    }
+    if (address != null && address.isNotEmpty) {
+      payload['address'] = address;
     }
 
     final response = await ApiHttpClient.post(
