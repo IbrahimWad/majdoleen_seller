@@ -87,6 +87,54 @@ class SellerAuthService {
     return _decodeResponse(response);
   }
 
+  Future<Map<String, dynamic>> sendForgotPasswordOtp({
+    required String phone,
+  }) async {
+    final response = await ApiHttpClient.post(
+      ApiConfig.uri('/seller/forgot-password/send-otp'),
+      headers: _headers(null),
+      body: jsonEncode({
+        'phone': phone,
+      }),
+    );
+
+    return _decodeResponse(response);
+  }
+
+  Future<Map<String, dynamic>> verifyForgotPasswordOtp({
+    required String phone,
+    required String otp,
+  }) async {
+    final response = await ApiHttpClient.post(
+      ApiConfig.uri('/seller/forgot-password/verify-otp'),
+      headers: _headers(null),
+      body: jsonEncode({
+        'phone': phone,
+        'otp': otp,
+      }),
+    );
+
+    return _decodeResponse(response);
+  }
+
+  Future<Map<String, dynamic>> resetPassword({
+    required String resetToken,
+    required String password,
+    required String passwordConfirmation,
+  }) async {
+    final response = await ApiHttpClient.post(
+      ApiConfig.uri('/seller/forgot-password/reset'),
+      headers: _headers(null),
+      body: jsonEncode({
+        'reset_token': resetToken,
+        'password': password,
+        'password_confirmation': passwordConfirmation,
+      }),
+    );
+
+    return _decodeResponse(response);
+  }
+
   Future<Map<String, dynamic>> completeRegistration({
     required String verificationToken,
     required String name,

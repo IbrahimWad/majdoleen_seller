@@ -9,6 +9,8 @@ import '../services/auth_storage.dart';
 import '../screens/add_product_screen.dart';
 import '../screens/approval_pending_screen.dart';
 import '../screens/forgot_password_screen.dart';
+import '../screens/forgot_password_verification_screen.dart';
+import '../screens/reset_password_screen.dart';
 import '../screens/home_screen.dart';
 import '../screens/language_selection_screen.dart';
 import '../screens/login_screen.dart';
@@ -101,6 +103,9 @@ class _MajdoleenSellerAppState extends State<MajdoleenSellerApp> {
         AppRoutes.verification: (_) => const VerificationScreen(),
         AppRoutes.approvalPending: (_) => const ApprovalPendingScreen(),
         AppRoutes.forgotPassword: (_) => const ForgotPasswordScreen(),
+        AppRoutes.forgotPasswordVerification: (_) =>
+            const ForgotPasswordVerificationScreen(),
+        AppRoutes.resetPassword: (_) => const ResetPasswordScreen(),
         AppRoutes.home: (_) => const HomeScreen(),
         AppRoutes.orders: (_) => const OrdersScreen(),
         AppRoutes.products: (_) => const ProductsScreen(),

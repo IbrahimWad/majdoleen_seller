@@ -4,6 +4,8 @@ class AppRoutes {
   static const verification = '/verification';
   static const approvalPending = '/approval-pending';
   static const forgotPassword = '/forgot-password';
+  static const forgotPasswordVerification = '/forgot-password-verification';
+  static const resetPassword = '/reset-password';
   static const home = '/home';
   static const orders = '/orders';
   static const products = '/products';
