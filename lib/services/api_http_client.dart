@@ -274,7 +274,7 @@ Future<FormData> _multipartToFormData(http.MultipartRequest request) async {
           () => file.finalize(),
       file.length,
       filename: filename,
-      contentType: ct == null ? null : MediaType(ct.type, ct.subtype),
+      contentType: MediaType(ct.type, ct.subtype),
     );
 
     form.files.add(MapEntry(file.field, mpFile));

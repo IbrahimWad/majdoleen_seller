@@ -187,8 +187,9 @@ class _SellerDrawerState extends State<SellerDrawer> {
                     const SizedBox(width: 12),
                     Expanded(
                       child: FilledButton(
-                        onPressed: () {
+                        onPressed: () async {
                           Navigator.of(dialogContext).pop();
+                          await _authStorage.clearToken();
                           navigator.pushNamedAndRemoveUntil(
                             AppRoutes.login,
                             (route) => false,
@@ -294,10 +295,10 @@ class _SellerDrawerState extends State<SellerDrawer> {
                               ),
                             ),
                             if (headerSubtitle != null &&
-                                headerSubtitle!.isNotEmpty) ...[
+                                headerSubtitle.isNotEmpty) ...[
                               const SizedBox(height: 4),
                               Text(
-                                headerSubtitle!,
+                                headerSubtitle,
                                 style: theme.textTheme.bodySmall?.copyWith(
                                   color: Colors.white.withOpacity(0.8),
                                 ),

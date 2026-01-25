@@ -336,7 +336,7 @@ class SellerAuthService {
     if (imageFile != null) {
       final request = http.MultipartRequest(
         'POST',
-        ApiConfig.uri('/v1/multivendor/seller-shop-images/update'),
+        ApiConfig.uri('/v1/multivendor/seller-shop-images/set'),
       );
       request.headers.addAll(_multipartHeaders(authToken));
       request.fields['type'] = type;
@@ -362,7 +362,7 @@ class SellerAuthService {
     }
 
     final response = await ApiHttpClient.post(
-      ApiConfig.uri('/v1/multivendor/seller-shop-images/update'),
+      ApiConfig.uri('/v1/multivendor/seller-shop-images/set'),
       headers: _headers(authToken),
       body: jsonEncode(payload),
     );
@@ -534,5 +534,76 @@ class SellerAuthService {
       'SellerAuthService error ($statusCode): ${response.body}',
     );
     throw Exception('Request failed ($statusCode).');
+  }
+
+  Future<List<Map<String, dynamic>>> fetchOrders({String? authToken}) async {
+    final response = await ApiHttpClient.get(
+      ApiConfig.uri('/api/orders'),
+      headers: _headers(authToken),
+    );
+
+    return _decodeListResponse(response);
+  }
+
+  Future<Map<String, dynamic>> fetchDashboardStats({String? authToken}) async {
+    final response = await ApiHttpClient.get(
+      ApiConfig.uri('/api/dashboard/stats'),
+      headers: _headers(authToken),
+    );
+
+    final statusCode = response.statusCode;
+    if (statusCode == 200) {
+      try {
+        return jsonDecode(response.body) as Map<String, dynamic>;
+      } catch (e) {
+        debugPrint('Error decoding dashboard stats: $e');
+        return _defaultDashboardStats();
+      }
+    }
+
+    return _defaultDashboardStats();
+  }
+
+  Future<List<Map<String, dynamic>>> fetchLowInventoryProducts({String? authToken}) async {
+    final response = await ApiHttpClient.get(
+      ApiConfig.uri('/api/products/low-inventory'),
+      headers: _headers(authToken),
+    );
+
+    return _decodeListResponse(response);
+  }
+
+  Map<String, dynamic> _defaultDashboardStats() {
+    return {
+      'todaySales': '\$2,450',
+      'pendingOrders': '6',
+      'availableBalance': '\$8,420',
+      'storeRating': '4.8',
+    };
+  }
+
+  List<Map<String, dynamic>> _decodeListResponse(http.Response response) {
+    final statusCode = response.statusCode;
+
+    if (statusCode == 200) {
+      try {
+        final decoded = jsonDecode(response.body);
+        if (decoded is List) {
+          return List<Map<String, dynamic>>.from(
+            decoded.map((item) => item as Map<String, dynamic>),
+          );
+        }
+        return [];
+      } catch (e) {
+        debugPrint('Error decoding response: $e');
+        return [];
+      }
+    }
+
+    if (statusCode == 401) {
+      throw Exception('Unauthenticated.');
+    }
+
+    throw Exception('Failed to fetch orders (status: $statusCode).');
   }
 }
