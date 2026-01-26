@@ -10,6 +10,12 @@ import 'api_http_client.dart';
 class SellerAuthService {
   const SellerAuthService();
 
+  static const Duration _shopDetailsCacheTtl = Duration(minutes: 1);
+  static Map<String, dynamic>? _shopDetailsCache;
+  static DateTime? _shopDetailsCacheAt;
+  static Future<Map<String, dynamic>>? _shopDetailsInFlight;
+  static String? _shopDetailsToken;
+
   Future<Map<String, dynamic>> registerSeller({
     required String email,
     required String name,
@@ -241,13 +247,51 @@ class SellerAuthService {
 
   Future<Map<String, dynamic>> fetchSellerShopDetails({
     required String authToken,
+    bool forceRefresh = false,
   }) async {
-    final response = await ApiHttpClient.get(
-      ApiConfig.uri('/v1/multivendor/seller-shop-details'),
-      headers: _headers(authToken),
-    );
+    final normalizedToken = authToken.trim();
+    final now = DateTime.now();
 
-    return _decodeResponse(response);
+    final cache = _shopDetailsCache;
+    final cacheAt = _shopDetailsCacheAt;
+    final cacheValid = !forceRefresh &&
+        cache != null &&
+        cacheAt != null &&
+        _shopDetailsToken == normalizedToken &&
+        now.difference(cacheAt) < _shopDetailsCacheTtl;
+
+    if (cacheValid) {
+      return cache;
+    }
+
+    final inFlight = _shopDetailsInFlight;
+    if (!forceRefresh &&
+        inFlight != null &&
+        _shopDetailsToken == normalizedToken) {
+      return inFlight;
+    }
+
+    final future = () async {
+      final response = await ApiHttpClient.get(
+        ApiConfig.uri('/v1/multivendor/seller-shop-details'),
+        headers: _headers(authToken),
+      );
+      return _decodeResponse(response);
+    }();
+
+    _shopDetailsInFlight = future;
+    _shopDetailsToken = normalizedToken;
+
+    try {
+      final result = await future;
+      _shopDetailsCache = result;
+      _shopDetailsCacheAt = DateTime.now();
+      return result;
+    } finally {
+      if (identical(_shopDetailsInFlight, future)) {
+        _shopDetailsInFlight = null;
+      }
+    }
   }
 
   Future<Map<String, dynamic>> updateSellerShopDetails({
@@ -307,7 +351,12 @@ class SellerAuthService {
       body: jsonEncode(payload),
     );
 
-    return _decodeResponse(response);
+    final decoded = _decodeResponse(response);
+    final normalizedToken = authToken.trim();
+    _shopDetailsCache = decoded;
+    _shopDetailsCacheAt = DateTime.now();
+    _shopDetailsToken = normalizedToken;
+    return decoded;
   }
 
   Future<Map<String, dynamic>> uploadSellerShopImage({

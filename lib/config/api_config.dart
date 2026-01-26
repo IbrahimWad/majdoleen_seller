@@ -33,13 +33,34 @@ class ApiConfig {
     final trimmed = path.trim();
     if (trimmed.isEmpty) return '';
     if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) {
-      return trimmed;
+      return _normalizePublicPath(trimmed);
     }
     var normalized = trimmed.startsWith('/') ? trimmed : '/$trimmed';
-    if (normalized.startsWith('/public/')) {
-      normalized = normalized.substring('/public'.length);
+    if (!normalized.startsWith('/public/')) {
+      if (normalized.startsWith('/uploaded/') ||
+          normalized.startsWith('/uploads/') ||
+          normalized.startsWith('/storage/') ||
+          normalized.startsWith('/image-sliders/')) {
+        normalized = '/public$normalized';
+      }
     }
-    return '$rootUrl$normalized';
+    return _normalizePublicPath('$rootUrl$normalized');
+  }
+
+  static String _normalizePublicPath(String url) {
+    final uri = Uri.tryParse(url);
+    if (uri == null) return url;
+    final path = uri.path;
+    if (path.startsWith('/public/')) {
+      return url;
+    }
+    if (path.startsWith('/uploaded/') ||
+        path.startsWith('/uploads/') ||
+        path.startsWith('/storage/') ||
+        path.startsWith('/image-sliders/')) {
+      return uri.replace(path: '/public$path').toString();
+    }
+    return url;
   }
 
   static bool get logRequests {
@@ -55,6 +76,6 @@ class ApiConfig {
     if (override.isNotEmpty) {
       return override;
     }
-    return 'PostmanRuntime/7.39.0';
+    return 'MajdoleenSeller/1.0.0';
   }
 }

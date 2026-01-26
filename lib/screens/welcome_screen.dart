@@ -31,11 +31,19 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
     try {
       final service = ImageSliderService();
       final sliders = await service.fetchImageSliders();
+      if (!mounted) {
+        return;
+      }
       setState(() {
         _sliders = sliders.where((s) => s.isActive).toList();
+        print(_sliders);
+        _currentIndex = 0;
         _isLoading = false;
       });
     } catch (e) {
+      if (!mounted) {
+        return;
+      }
       setState(() {
         _error = e.toString();
         _isLoading = false;
@@ -81,6 +89,40 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
     ];
   }
 
+  List<_OnboardingStep> _buildSliderSteps(
+    AppLocalizations l10n,
+    String languageCode,
+  ) {
+    const accents = [
+      Color(0xFFF1E4F4),
+      Color(0xFFEBD8F1),
+      Color(0xFFF6EAF8),
+    ];
+
+    return _sliders.asMap().entries.map((entry) {
+      final index = entry.key;
+      final slider = entry.value;
+      final accent = accents[index % accents.length];
+      return _OnboardingStep(
+        title: slider.localizedTitle(languageCode),
+        subtitle: slider.localizedDescription(languageCode),
+        imagePath: slider.imageUrl,
+        accentColor: accent,
+        highlights: const [],
+      );
+    }).toList();
+  }
+
+  List<_OnboardingStep> _currentSteps(
+    AppLocalizations l10n,
+    String languageCode,
+  ) {
+    if (_sliders.isNotEmpty) {
+      return _buildSliderSteps(l10n, languageCode);
+    }
+    return _buildSteps(l10n);
+  }
+
   @override
   void dispose() {
     _controller.dispose();
@@ -92,7 +134,9 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
   }
 
   void _next() {
-    final steps = _buildSteps(AppLocalizations.of(context));
+    final l10n = AppLocalizations.of(context);
+    final steps =
+        _currentSteps(l10n, Localizations.localeOf(context).languageCode);
     if (_currentIndex == steps.length - 1) {
       _goToLogin();
       return;
@@ -107,6 +151,7 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final l10n = AppLocalizations.of(context);
+    final languageCode = Localizations.localeOf(context).languageCode;
 
     if (_isLoading) {
       return Scaffold(
@@ -118,18 +163,24 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
 
     if (_error != null) {
       // For now, fall back to onboarding on error
-      return _buildOnboarding(context, theme, l10n);
+      return _buildOnboarding(
+        context,
+        theme,
+        l10n,
+        _buildSteps(l10n),
+      );
     }
 
-    if (_sliders.isEmpty) {
-      return _buildOnboarding(context, theme, l10n);
-    }
-
-    return _buildSliderView(context, theme, l10n);
+    final steps = _currentSteps(l10n, languageCode);
+    return _buildOnboarding(context, theme, l10n, steps);
   }
 
-  Widget _buildOnboarding(BuildContext context, ThemeData theme, AppLocalizations l10n) {
-    final steps = _buildSteps(l10n);
+  Widget _buildOnboarding(
+    BuildContext context,
+    ThemeData theme,
+    AppLocalizations l10n,
+    List<_OnboardingStep> steps,
+  ) {
     final accent = steps[_currentIndex].accentColor;
     final nextLabel = _currentIndex == steps.length - 1
         ? l10n.welcomeGetStarted
@@ -508,6 +559,7 @@ class _OnboardingCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final l10n = AppLocalizations.of(context);
+    final isNetworkImage = step.imagePath.startsWith('http');
     return Padding(
       padding: const EdgeInsets.fromLTRB(24, 8, 24, 16),
       child: Column(
@@ -530,6 +582,41 @@ class _OnboardingCard extends StatelessWidget {
                       color: step.accentColor.withOpacity(0.4),
                     ),
                     boxShadow: kSoftShadow,
+                  ),
+                ),
+                Positioned.fill(
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(32),
+                    child: isNetworkImage
+                        ? Image.network(
+                            step.imagePath,
+                            fit: BoxFit.cover,
+                            alignment: Alignment.center,
+                            errorBuilder: (_, __, ___) => Image.asset(
+                              'assets/branding/majdoleen_logo.png',
+                              fit: BoxFit.contain,
+                            ),
+                          )
+                        : Image.asset(
+                            step.imagePath,
+                            fit: BoxFit.cover,
+                            alignment: Alignment.center,
+                          ),
+                  ),
+                ),
+                Positioned.fill(
+                  child: Container(
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(32),
+                      gradient: LinearGradient(
+                        begin: Alignment.topCenter,
+                        end: Alignment.bottomCenter,
+                        colors: [
+                          Colors.white.withOpacity(0.55),
+                          Colors.white.withOpacity(0.05),
+                        ],
+                      ),
+                    ),
                   ),
                 ),
                 Positioned(
@@ -599,38 +686,6 @@ class _OnboardingCard extends StatelessWidget {
                     ),
                   ),
                 ),
-                Center(
-                  child: TweenAnimationBuilder<double>(
-                    tween: Tween(begin: 0.92, end: 1.0),
-                    duration: const Duration(milliseconds: 350),
-                    curve: Curves.easeOutBack,
-                    builder: (context, value, child) {
-                      return Transform.scale(
-                        scale: value,
-                        child: child,
-                      );
-                    },
-                    child: Container(
-                      width: 190,
-                      height: 190,
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        shape: BoxShape.circle,
-                        boxShadow: kSoftShadow,
-                        border: Border.all(
-                          color: step.accentColor.withOpacity(0.25),
-                        ),
-                      ),
-                      child: Padding(
-                        padding: const EdgeInsets.all(28),
-                        child: Image.asset(
-                          step.imagePath,
-                          fit: BoxFit.contain,
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
               ],
             ),
           ),
@@ -650,16 +705,18 @@ class _OnboardingCard extends StatelessWidget {
               color: kInkColor.withOpacity(0.7),
             ),
           ),
-          const SizedBox(height: 16),
-          Wrap(
-            spacing: 10,
-            runSpacing: 8,
-            alignment: WrapAlignment.center,
-            children: step.highlights
-                .map((label) => _OnboardingHighlight(label: label))
-                .toList(),
-          ),
-          const SizedBox(height: 8),
+          if (step.highlights.isNotEmpty) ...[
+            const SizedBox(height: 16),
+            Wrap(
+              spacing: 10,
+              runSpacing: 8,
+              alignment: WrapAlignment.center,
+              children: step.highlights
+                  .map((label) => _OnboardingHighlight(label: label))
+                  .toList(),
+            ),
+            const SizedBox(height: 8),
+          ],
         ],
       ),
     );

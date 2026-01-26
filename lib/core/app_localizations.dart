@@ -305,6 +305,7 @@ class AppLocalizations {
       'productsPriceDialogTitle': 'Update price',
       'productsPurchasePriceLabel': 'Purchase price',
       'productsUnitPriceLabel': 'Unit price',
+      'productsSellingPriceLabel': 'Selling price',
       'productsPriceUpdated': 'Price updated.',
       'productsPriceUpdateFailed': 'Price update failed.',
       'productsStockDialogTitle': 'Update stock',
@@ -386,10 +387,15 @@ class AppLocalizations {
       'addProductFeatureProduct': 'Feature this product',
       'addProductMediaTitle': 'Media & visibility',
       'addProductMediaSubtitle': 'Upload visuals and decide where to sell.',
+      'addProductMediaUploadTitle': 'Upload progress',
+      'addProductMediaUploadReady': 'Ready to upload. Add images above.',
+      'addProductMediaUploadInProgress': 'Uploading media files…',
+      'addProductMediaUploadComplete': 'Completed',
       'addProductImagesTitle': 'Product images',
       'addProductImageCover': 'Cover',
       'addProductImageLabel': 'Image {index}',
       'addProductImagePickerMessage': 'Image picker is not connected yet.',
+      'addProductImagesAdd': 'Add images',
       'addProductDeliveryTitle': 'Delivery options',
       'addProductDeliveryCourier': 'Courier',
       'addProductDeliveryPickup': 'Pickup',
@@ -1001,6 +1007,7 @@ class AppLocalizations {
       'productsPriceDialogTitle': 'تحديث السعر',
       'productsPurchasePriceLabel': 'سعر الشراء',
       'productsUnitPriceLabel': 'سعر البيع',
+      'productsSellingPriceLabel': 'سعر البيع',
       'productsPriceUpdated': 'تم تحديث السعر.',
       'productsPriceUpdateFailed': 'فشل تحديث السعر.',
       'productsStockDialogTitle': 'تحديث المخزون',
@@ -1081,10 +1088,15 @@ class AppLocalizations {
       'addProductFeatureProduct': 'تمييز هذا المنتج',
       'addProductMediaTitle': 'الوسائط والظهور',
       'addProductMediaSubtitle': 'ارفع الصور وحدد أماكن البيع.',
+      'addProductMediaUploadTitle': 'حالة الرفع',
+      'addProductMediaUploadReady': 'جاهز للرفع. أضف الصور بالأعلى.',
+      'addProductMediaUploadInProgress': 'جارٍ رفع الوسائط…',
+      'addProductMediaUploadComplete': 'مكتمل',
       'addProductImagesTitle': 'صور المنتج',
       'addProductImageCover': 'الغلاف',
       'addProductImageLabel': 'صورة {index}',
       'addProductImagePickerMessage': 'محدد الصور غير متصل بعد.',
+      'addProductImagesAdd': 'إضافة صور',
       'addProductDeliveryTitle': 'خيارات التوصيل',
       'addProductDeliveryCourier': 'توصيل',
       'addProductDeliveryPickup': 'استلام',
@@ -1713,6 +1725,7 @@ class AppLocalizations {
   String get productsPriceDialogTitle => _value('productsPriceDialogTitle');
   String get productsPurchasePriceLabel => _value('productsPurchasePriceLabel');
   String get productsUnitPriceLabel => _value('productsUnitPriceLabel');
+  String get productsSellingPriceLabel => _value('productsSellingPriceLabel');
   String get productsPriceUpdated => _value('productsPriceUpdated');
   String get productsPriceUpdateFailed => _value('productsPriceUpdateFailed');
   String get productsStockDialogTitle => _value('productsStockDialogTitle');
@@ -1797,10 +1810,17 @@ class AppLocalizations {
   String get addProductFeatureProduct => _value('addProductFeatureProduct');
   String get addProductMediaTitle => _value('addProductMediaTitle');
   String get addProductMediaSubtitle => _value('addProductMediaSubtitle');
+  String get addProductMediaUploadTitle => _value('addProductMediaUploadTitle');
+  String get addProductMediaUploadReady => _value('addProductMediaUploadReady');
+  String get addProductMediaUploadInProgress =>
+      _value('addProductMediaUploadInProgress');
+  String get addProductMediaUploadComplete =>
+      _value('addProductMediaUploadComplete');
   String get addProductImagesTitle => _value('addProductImagesTitle');
   String get addProductImageCover => _value('addProductImageCover');
   String get addProductImagePickerMessage =>
       _value('addProductImagePickerMessage');
+  String get addProductImagesAdd => _value('addProductImagesAdd');
   String get addProductDeliveryTitle => _value('addProductDeliveryTitle');
   String get addProductDeliveryCourier => _value('addProductDeliveryCourier');
   String get addProductDeliveryPickup => _value('addProductDeliveryPickup');

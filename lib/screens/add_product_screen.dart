@@ -37,6 +37,8 @@ class _AddProductScreenState extends State<AddProductScreen> {
   bool _isLoading = true;
   bool _isSaving = false;
   bool _isUploadingImage = false;
+  final List<SellerProductMediaUpload> _galleryImages = [];
+  bool _isUploadingGallery = false;
 
   String? _authToken;
   SellerProductOptions _options = const SellerProductOptions();
@@ -55,8 +57,7 @@ class _AddProductScreenState extends State<AddProductScreen> {
   final TextEditingController _nameController = TextEditingController();
   final TextEditingController _permalinkController = TextEditingController();
   final TextEditingController _descriptionController = TextEditingController();
-  final TextEditingController _purchasePriceController = TextEditingController();
-  final TextEditingController _unitPriceController = TextEditingController();
+  final TextEditingController _sellingPriceController = TextEditingController();
   final TextEditingController _quantityController = TextEditingController();
   final TextEditingController _discountController = TextEditingController();
 
@@ -93,8 +94,7 @@ class _AddProductScreenState extends State<AddProductScreen> {
     _nameController.dispose();
     _permalinkController.dispose();
     _descriptionController.dispose();
-    _purchasePriceController.dispose();
-    _unitPriceController.dispose();
+    _sellingPriceController.dispose();
     _quantityController.dispose();
     _discountController.dispose();
     for (final variation in _variations) {
@@ -177,8 +177,7 @@ class _AddProductScreenState extends State<AddProductScreen> {
     _nameController.text = details.name;
     _permalinkController.text = details.permalink;
     _descriptionController.text = details.description;
-    _purchasePriceController.text = details.purchasePrice?.toString() ?? '';
-    _unitPriceController.text = details.unitPrice?.toString() ?? '';
+    _sellingPriceController.text = details.unitPrice?.toString() ?? '';
     _quantityController.text = details.quantity?.toString() ?? '';
     _discountController.text = details.discountAmount?.toString() ?? '';
 
@@ -199,6 +198,13 @@ class _AddProductScreenState extends State<AddProductScreen> {
         details.conditionId,
         null,
       );
+      final thumbnailId = details.thumbnailImageId ?? 0;
+      final filteredGallery = thumbnailId == 0
+          ? details.galleryImages
+          : details.galleryImages.where((image) => image.fileId != thumbnailId);
+      _galleryImages
+        ..clear()
+        ..addAll(filteredGallery);
     });
 
     debugPrint(
@@ -351,28 +357,33 @@ class _AddProductScreenState extends State<AddProductScreen> {
       }
       payload['variations'] = variationsPayload;
     } else {
-      payload['purchase_price'] =
-          double.tryParse(_purchasePriceController.text.trim()) ?? 0;
       payload['unit_price'] =
-          double.tryParse(_unitPriceController.text.trim()) ?? 0;
+          double.tryParse(_sellingPriceController.text.trim()) ?? 0;
       payload['quantity'] = int.tryParse(_quantityController.text.trim()) ?? 0;
     }
 
     setState(() => _isSaving = true);
 
     try {
-      if (widget.productId == null) {
-        await _productsService.createProduct(
+      int? productId = widget.productId;
+      if (productId == null) {
+        final created = await _productsService.createProduct(
           authToken: token,
           payload: payload,
         );
+        productId = created.id;
       } else {
         await _productsService.updateProduct(
           authToken: token,
-          productId: widget.productId!,
+          productId: productId,
           payload: payload,
         );
       }
+
+      if (productId != null) {
+        await _uploadPendingGallery(token, productId);
+      }
+
       if (!mounted) return;
       Navigator.of(context).pop(const ProductFormResult.saved());
     } catch (e, stackTrace) {
@@ -589,6 +600,191 @@ class _AddProductScreenState extends State<AddProductScreen> {
     }
   }
 
+  Future<void> _pickProductImages() async {
+    if (_isUploadingGallery || _isUploadingImage) return;
+    final l10n = AppLocalizations.of(context);
+    final token = _authToken;
+    if (token == null || token.isEmpty) {
+      await _handleUnauthenticated(l10n);
+      return;
+    }
+
+    try {
+      final picked = await _imagePicker.pickMultiImage();
+      if (picked.isEmpty) {
+        return;
+      }
+
+      final filesToUpload = <File>[];
+      var skippedLarge = false;
+      for (final XFile file in picked) {
+        final localFile = File(file.path);
+        if (await localFile.length() > 4 * 1024 * 1024) {
+          skippedLarge = true;
+          continue;
+        }
+        filesToUpload.add(localFile);
+      }
+
+      if (filesToUpload.isEmpty) {
+        if (skippedLarge) {
+          showAppSnackBar(context, l10n.productsImageTooLarge);
+        }
+        return;
+      }
+
+      final pending = filesToUpload
+          .map(
+            (file) => SellerProductMediaUpload(
+              fileId: 0,
+              url: '',
+              localPath: file.path,
+            ),
+          )
+          .toList();
+      final pendingPaths = pending.map((entry) => entry.localPath).toSet();
+
+      setState(() {
+        _isUploadingGallery = true;
+        _galleryImages.addAll(pending);
+      });
+
+      if (widget.productId == null) {
+        if (skippedLarge) {
+          showAppSnackBar(context, l10n.productsImageTooLarge);
+        }
+        return;
+      }
+
+      final uploads = await _productsService.uploadProductMediaBatch(
+        authToken: token,
+        files: filesToUpload,
+        productId: widget.productId,
+      );
+      if (!mounted) return;
+
+      final existingIds = _galleryImages.map((image) => image.fileId).toSet();
+      final resolvedUploads = <SellerProductMediaUpload>[];
+      if (uploads.length == pending.length) {
+        for (var i = 0; i < uploads.length; i++) {
+          final upload = uploads[i];
+          final localPath = pending[i].localPath;
+          resolvedUploads.add(
+            SellerProductMediaUpload(
+              fileId: upload.fileId,
+              url: upload.url,
+              localPath: upload.url.isEmpty ? localPath : null,
+            ),
+          );
+        }
+      } else {
+        resolvedUploads.addAll(uploads);
+      }
+
+      final newUploads = resolvedUploads.where((upload) {
+        if (upload.fileId > 0 && existingIds.contains(upload.fileId)) return false;
+        if (upload.url.isEmpty &&
+            (upload.localPath == null || upload.localPath!.isEmpty)) {
+          return false;
+        }
+        return true;
+      }).toList();
+      setState(() {
+        if (newUploads.isNotEmpty) {
+          _galleryImages.removeWhere(
+            (image) =>
+                image.localPath != null && pendingPaths.contains(image.localPath),
+          );
+          _galleryImages.addAll(newUploads);
+        }
+      });
+
+      if (skippedLarge) {
+        showAppSnackBar(context, l10n.productsImageTooLarge);
+      }
+    } catch (e, stackTrace) {
+      debugPrint('Upload product gallery failed: $e');
+      debugPrintStack(stackTrace: stackTrace);
+      if (mounted) {
+        showAppSnackBar(context, _errorMessage(e, l10n.productsImageUploadFailed));
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isUploadingGallery = false);
+      }
+    }
+  }
+
+  void _removeProductImage(int index) {
+    if (index < 0 || index >= _galleryImages.length) return;
+    setState(() {
+      _galleryImages.removeAt(index);
+    });
+  }
+
+  List<File> _pendingGalleryFiles() {
+    return _galleryImages
+        .where(
+          (image) =>
+              image.localPath != null &&
+              image.localPath!.isNotEmpty &&
+              (image.url.isEmpty && image.fileId == 0),
+        )
+        .map((image) => File(image.localPath!))
+        .toList();
+  }
+
+  Future<void> _uploadPendingGallery(String authToken, int productId) async {
+    final l10n = AppLocalizations.of(context);
+    final files = _pendingGalleryFiles();
+    if (files.isEmpty) return;
+
+    try {
+      setState(() => _isUploadingGallery = true);
+      final uploads = await _productsService.uploadProductMediaBatch(
+        authToken: authToken,
+        files: files,
+        productId: productId,
+      );
+      if (!mounted) return;
+
+      final pendingPaths =
+          files.map((file) => file.path).where((path) => path.isNotEmpty).toSet();
+      final existingIds = _galleryImages.map((image) => image.fileId).toSet();
+      final resolvedUploads = uploads
+          .map(
+            (upload) => SellerProductMediaUpload(
+              fileId: upload.fileId,
+              url: upload.url,
+            ),
+          )
+          .where((upload) => upload.fileId > 0 || upload.url.isNotEmpty)
+          .toList();
+      final newUploads = resolvedUploads.where((upload) {
+        if (upload.fileId > 0 && existingIds.contains(upload.fileId)) return false;
+        return true;
+      }).toList();
+
+      setState(() {
+        _galleryImages.removeWhere(
+          (image) =>
+              image.localPath != null && pendingPaths.contains(image.localPath),
+        );
+        _galleryImages.addAll(newUploads);
+      });
+    } catch (e, stackTrace) {
+      debugPrint('Upload pending gallery failed: $e');
+      debugPrintStack(stackTrace: stackTrace);
+      if (mounted) {
+        showAppSnackBar(context, _errorMessage(e, l10n.productsImageUploadFailed));
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isUploadingGallery = false);
+      }
+    }
+  }
+
   void _addVariation() {
     setState(() {
       _variations.add(_VariationFormData());
@@ -773,6 +969,142 @@ class _AddProductScreenState extends State<AddProductScreen> {
     }
   }
 
+  Widget _buildGallerySection(ThemeData theme, AppLocalizations l10n) {
+    final children = <Widget>[
+      for (final entry in _galleryImages.asMap().entries)
+        _GalleryImageTile(
+          label: l10n.addProductImageLabel(entry.key + 1),
+          imageUrl: ApiConfig.resolveMediaUrl(entry.value.url),
+          localPath: entry.value.localPath,
+          onRemove: () => _removeProductImage(entry.key),
+        ),
+      _GalleryAddTile(
+        label: l10n.addProductImagesAdd,
+        isLoading: _isUploadingGallery,
+        onTap: _pickProductImages,
+      ),
+    ];
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          l10n.addProductImagesTitle,
+          style: theme.textTheme.titleMedium?.copyWith(
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+        const SizedBox(height: 12),
+        Wrap(
+          spacing: 12,
+          runSpacing: 12,
+          children: children,
+        ),
+        if (_galleryImages.isEmpty)
+          Padding(
+            padding: const EdgeInsets.only(top: 12),
+            child: Text(
+              l10n.addProductImagePickerMessage,
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: kInkColor.withOpacity(0.7),
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+
+  Widget _buildUploadProgressCard(ThemeData theme, AppLocalizations l10n) {
+    final isUploading = _isUploadingImage || _isUploadingGallery;
+    final progressValue = isUploading ? null : 1.0;
+    final statusText = isUploading
+        ? l10n.addProductMediaUploadInProgress
+        : l10n.addProductMediaUploadReady;
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: kBrandColor.withOpacity(0.12)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.04),
+            blurRadius: 18,
+            offset: const Offset(0, 6),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 44,
+                height: 44,
+                decoration: BoxDecoration(
+                  color: kBrandColor.withOpacity(0.12),
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                child: Icon(
+                  isUploading ? Icons.cloud_upload_outlined : Icons.check_circle,
+                  color: kBrandColor,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      l10n.addProductMediaUploadTitle,
+                      style: theme.textTheme.titleSmall?.copyWith(
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      statusText,
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: kInkColor.withOpacity(0.7),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              if (!isUploading)
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: kSuccessColor.withOpacity(0.15),
+                    borderRadius: BorderRadius.circular(999),
+                  ),
+                  child: Text(
+                    l10n.addProductMediaUploadComplete,
+                    style: theme.textTheme.labelSmall?.copyWith(
+                      color: kSuccessColor,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(999),
+            child: LinearProgressIndicator(
+              value: progressValue,
+              minHeight: 6,
+              backgroundColor: kBrandColor.withOpacity(0.12),
+              valueColor: const AlwaysStoppedAnimation<Color>(kBrandColor),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildBasicsStep(ThemeData theme, AppLocalizations l10n) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -898,18 +1230,11 @@ class _AddProductScreenState extends State<AddProductScreen> {
         const SizedBox(height: 16),
         if (_productType == 2) ...[
           TextFormField(
-            controller: _purchasePriceController,
+            controller: _sellingPriceController,
             keyboardType:
                 const TextInputType.numberWithOptions(decimal: true),
             decoration:
-                InputDecoration(labelText: l10n.productsPurchasePriceLabel),
-          ),
-          const SizedBox(height: 16),
-          TextFormField(
-            controller: _unitPriceController,
-            keyboardType:
-                const TextInputType.numberWithOptions(decimal: true),
-            decoration: InputDecoration(labelText: l10n.productsUnitPriceLabel),
+                InputDecoration(labelText: l10n.productsSellingPriceLabel),
           ),
           const SizedBox(height: 16),
           TextFormField(
@@ -1072,6 +1397,10 @@ class _AddProductScreenState extends State<AddProductScreen> {
           isLoading: _isUploadingImage,
           onTap: _pickThumbnail,
         ),
+        const SizedBox(height: 20),
+        _buildGallerySection(theme, l10n),
+        const SizedBox(height: 20),
+        _buildUploadProgressCard(theme, l10n),
         const SizedBox(height: 20),
         SwitchListTile(
           value: _publishNow,
@@ -1273,6 +1602,189 @@ class _ImageSlot extends StatelessWidget {
           ),
         ),
       ],
+    );
+  }
+}
+
+class _GalleryImageTile extends StatelessWidget {
+  final String label;
+  final String imageUrl;
+  final String? localPath;
+  final VoidCallback? onRemove;
+
+  const _GalleryImageTile({
+    required this.label,
+    required this.imageUrl,
+    this.localPath,
+    this.onRemove,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return SizedBox(
+      width: 110,
+      height: 110,
+      child: Stack(
+        children: [
+          ClipRRect(
+            borderRadius: BorderRadius.circular(18),
+            child: Container(
+              color: Colors.white,
+              child: _buildImage(theme),
+            ),
+          ),
+          Positioned(
+            top: 6,
+            right: 6,
+            child: Material(
+              color: Colors.white.withOpacity(0.9),
+              shape: const CircleBorder(),
+              child: InkWell(
+                onTap: onRemove,
+                customBorder: const CircleBorder(),
+                child: const Padding(
+                  padding: EdgeInsets.all(2),
+                  child: Icon(Icons.close, size: 18),
+                ),
+              ),
+            ),
+          ),
+          Positioned(
+            bottom: 6,
+            left: 6,
+            right: 6,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+              decoration: BoxDecoration(
+                color: Colors.black.withOpacity(0.55),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Text(
+                label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: Colors.white,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildImage(ThemeData theme) {
+    final path = localPath;
+    if (path != null && path.isNotEmpty) {
+      return Image.file(
+        File(path),
+        width: double.infinity,
+        height: double.infinity,
+        fit: BoxFit.cover,
+        errorBuilder: (_, __, ___) => _fallback(theme),
+      );
+    }
+    if (imageUrl.isNotEmpty) {
+      return Image.network(
+        imageUrl,
+        width: double.infinity,
+        height: double.infinity,
+        fit: BoxFit.cover,
+        errorBuilder: (_, __, ___) => _fallback(theme),
+      );
+    }
+    return _fallback(theme);
+  }
+
+  Widget _fallback(ThemeData theme) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          width: 44,
+          height: 44,
+          decoration: BoxDecoration(
+            color: kBrandColor.withOpacity(0.12),
+            borderRadius: BorderRadius.circular(14),
+          ),
+          child: const Icon(Icons.add_photo_alternate_outlined),
+        ),
+        const SizedBox(height: 8),
+        Text(
+          label,
+          style: theme.textTheme.bodySmall?.copyWith(
+            color: kInkColor.withOpacity(0.6),
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _GalleryAddTile extends StatelessWidget {
+  final String label;
+  final bool isLoading;
+  final VoidCallback onTap;
+
+  const _GalleryAddTile({
+    required this.label,
+    required this.isLoading,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return InkWell(
+      onTap: isLoading ? null : onTap,
+      borderRadius: BorderRadius.circular(18),
+      child: Container(
+        width: 110,
+        height: 110,
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(color: kBrandColor.withOpacity(0.3)),
+        ),
+        child: Center(
+          child: isLoading
+              ? const SizedBox(
+                  width: 28,
+                  height: 28,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              : Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      width: 40,
+                      height: 40,
+                      decoration: BoxDecoration(
+                        color: kBrandColor.withOpacity(0.15),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: const Icon(
+                        Icons.add_photo_alternate_outlined,
+                        color: kBrandColor,
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      label,
+                      textAlign: TextAlign.center,
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: kInkColor.withOpacity(0.7),
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+        ),
+      ),
     );
   }
 }

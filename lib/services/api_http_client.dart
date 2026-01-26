@@ -1,5 +1,4 @@
 import 'dart:convert';
-import 'dart:typed_data';
 
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
@@ -17,7 +16,7 @@ class ApiHttpClient {
   static Dio _buildDio() {
     final dio = Dio(
       BaseOptions(
-        connectTimeout: const Duration(seconds: 20),
+        connectTimeout: const Duration(seconds: 60),
         sendTimeout: const Duration(seconds: 60),
         receiveTimeout: const Duration(seconds: 120),
         validateStatus: (_) => true,
@@ -140,17 +139,34 @@ class ApiHttpClient {
       data = await _multipartToFormData(request);
     }
 
-    final res = await _dio.request<String>(
-      uri.toString(),
-      data: data,
-      options: Options(
-        method: method,
-        headers: reqHeaders,
-        responseType: ResponseType.plain,
-        validateStatus: (_) => true,
-        receiveDataWhenStatusError: true,
-      ),
+    final isMultipart = request is http.MultipartRequest;
+    final options = Options(
+      method: method,
+      headers: reqHeaders,
+      responseType: ResponseType.plain,
+      validateStatus: (_) => true,
+      receiveDataWhenStatusError: true,
+      sendTimeout: isMultipart ? const Duration(seconds: 120) : null,
+      receiveTimeout: isMultipart ? const Duration(seconds: 180) : null,
     );
+
+    final previousConnectTimeout = _dio.options.connectTimeout;
+    if (isMultipart) {
+      _dio.options.connectTimeout = const Duration(seconds: 60);
+    }
+
+    late final Response<String> res;
+    try {
+      res = await _dio.request<String>(
+        uri.toString(),
+        data: data,
+        options: options,
+      );
+    } finally {
+      if (isMultipart) {
+        _dio.options.connectTimeout = previousConnectTimeout;
+      }
+    }
 
     final flattenedHeaders = _flattenHeaders(res.headers.map);
     final statusCode = res.statusCode ?? 0;

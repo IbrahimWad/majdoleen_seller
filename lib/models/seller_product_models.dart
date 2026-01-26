@@ -103,6 +103,7 @@ class SellerProductSummary {
   final int id;
   final String name;
   final String permalink;
+  final String? description;
   final int status;
   final int isApproved;
   final int isFeatured;
@@ -120,6 +121,7 @@ class SellerProductSummary {
     required this.id,
     required this.name,
     required this.permalink,
+    this.description,
     required this.status,
     required this.isApproved,
     required this.isFeatured,
@@ -140,6 +142,7 @@ class SellerProductSummary {
       id: _parseInt(json['id']) ?? 0,
       name: _parseString(json['name']) ?? '',
       permalink: _parseString(json['permalink']) ?? '',
+      description: _parseString(json['description']),
       status: _parseInt(json['status']) ?? 0,
       isApproved: _parseInt(json['is_approved']) ?? 0,
       isFeatured: _parseInt(json['is_featured']) ?? 0,
@@ -274,6 +277,25 @@ class SellerProductDetails {
     return rawValue is String ? rawValue : null;
   }
 
+  List<SellerProductMediaUpload> get galleryImages {
+    const keys = [
+      'product_images',
+      'images',
+      'gallery',
+      'media',
+      'product_media',
+      'media_gallery',
+      'media_files',
+    ];
+    for (final key in keys) {
+      final parsed = _parseMediaList(raw[key]);
+      if (parsed.isNotEmpty) {
+        return parsed;
+      }
+    }
+    return const [];
+  }
+
   List<SellerProductVariation> get variations {
     final value = raw['variations'];
     if (value is List) {
@@ -293,11 +315,62 @@ class SellerProductDetails {
 class SellerProductMediaUpload {
   final int fileId;
   final String url;
+  final String? localPath;
 
   const SellerProductMediaUpload({
     required this.fileId,
     required this.url,
+    this.localPath,
   });
+
+  factory SellerProductMediaUpload.fromJson(Map<String, dynamic> json) {
+    final map = Map<String, dynamic>.from(json);
+    final fileId = _parseInt(
+          map['id'] ??
+              map['file_id'] ??
+              map['image_id'] ??
+              map['media_id'] ??
+              map['document_id'],
+        ) ??
+        0;
+    final url = _parseString(
+          map['url'] ??
+              map['path'] ??
+              map['image'] ??
+              map['image_url'] ??
+              map['media_url'] ??
+              map['file'] ??
+              map['full_path'],
+        ) ??
+        '';
+    return SellerProductMediaUpload(fileId: fileId, url: url);
+  }
+}
+
+List<SellerProductMediaUpload> _parseMediaList(dynamic value) {
+  if (value is List) {
+    return value
+        .whereType<Map>()
+        .map(
+          (item) => SellerProductMediaUpload.fromJson(
+            Map<String, dynamic>.from(item),
+          ),
+        )
+        .toList();
+  }
+  if (value is Map) {
+    final nested = _parseMediaList(value['data']);
+    if (nested.isNotEmpty) {
+      return nested;
+    }
+    final single = SellerProductMediaUpload.fromJson(
+      Map<String, dynamic>.from(value),
+    );
+    if (single.fileId > 0 || single.url.isNotEmpty) {
+      return [single];
+    }
+  }
+  return const [];
 }
 
 int? _parseInt(dynamic value) {

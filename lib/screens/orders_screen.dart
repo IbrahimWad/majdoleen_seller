@@ -45,7 +45,7 @@ class _OrdersScreenState extends State<OrdersScreen> {
   final SellerOrdersService _ordersService = const SellerOrdersService();
   final AuthStorage _authStorage = AuthStorage();
 
-  static const Duration _requestTimeout = Duration(seconds: 20);
+  static const Duration _requestTimeout = Duration(seconds: 60);
 
   Timer? _searchDebounce;
   String _searchQuery = '';

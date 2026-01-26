@@ -216,19 +216,74 @@ class SellerProductsService {
   Future<SellerProductMediaUpload> uploadProductMedia({
     required String authToken,
     required File file,
+    int? productId,
   }) async {
+    final uploads = await uploadProductMediaBatch(
+      authToken: authToken,
+      files: [file],
+      productId: productId,
+    );
+    if (uploads.isEmpty) {
+      throw Exception('Product image upload failed.');
+    }
+    return uploads.first;
+  }
+
+  Future<List<SellerProductMediaUpload>> uploadProductMediaBatch({
+    required String authToken,
+    required List<File> files,
+    int? productId,
+  }) async {
+    if (files.isEmpty) return const [];
+
     final request = http.MultipartRequest(
       'POST',
       ApiConfig.uri('/v1/multivendor/seller-products/media/upload'),
     );
     request.headers.addAll(_multipartHeaders(authToken));
-    request.files.add(await http.MultipartFile.fromPath('file', file.path));
+    if (productId != null) {
+      request.fields['product_id'] = productId.toString();
+    }
+    for (final file in files) {
+      request.files.add(
+        await http.MultipartFile.fromPath('file', file.path),
+      );
+    }
+
     final streamed = await ApiHttpClient.send(request);
     final response = await http.Response.fromStream(streamed);
     final decoded = _decodeResponse(response);
-    final fileId = _parseInt(decoded['file_id']) ?? 0;
-    final url = decoded['url']?.toString() ?? '';
-    return SellerProductMediaUpload(fileId: fileId, url: url);
+
+    final data = decoded['data'];
+    if (data is List) {
+      final uploads = data
+          .whereType<Map>()
+          .map(
+            (entry) => SellerProductMediaUpload.fromJson(
+              Map<String, dynamic>.from(entry),
+            ),
+          )
+          .toList();
+      if (uploads.isNotEmpty) {
+        return uploads;
+      }
+    } else if (data is Map) {
+      final upload = SellerProductMediaUpload.fromJson(
+        Map<String, dynamic>.from(data),
+      );
+      if (upload.url.isNotEmpty || upload.fileId > 0) {
+        return [upload];
+      }
+    }
+
+    final fallback = SellerProductMediaUpload.fromJson(
+      Map<String, dynamic>.from(decoded),
+    );
+    if (fallback.url.isNotEmpty || fallback.fileId > 0) {
+      return [fallback];
+    }
+
+    return const [];
   }
 
   Map<String, String> _headers(String? authToken) {

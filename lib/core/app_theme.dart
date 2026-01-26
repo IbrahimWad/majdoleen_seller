@@ -1,37 +1,36 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 import 'app_colors.dart';
 
 ThemeData buildAppTheme() {
-  final textTheme = GoogleFonts.manropeTextTheme().copyWith(
-    headlineMedium: GoogleFonts.manrope(
+  final baseTextTheme = ThemeData.light().textTheme.apply(
+        fontFamily: 'Manrope',
+        bodyColor: kInkColor,
+        displayColor: kInkColor,
+      );
+  final textTheme = baseTextTheme.copyWith(
+    headlineMedium: baseTextTheme.headlineMedium?.copyWith(
       fontSize: 30,
       fontWeight: FontWeight.w700,
-      color: kInkColor,
     ),
-    titleLarge: GoogleFonts.manrope(
+    titleLarge: baseTextTheme.titleLarge?.copyWith(
       fontSize: 22,
       fontWeight: FontWeight.w600,
-      color: kInkColor,
     ),
-    titleMedium: GoogleFonts.manrope(
+    titleMedium: baseTextTheme.titleMedium?.copyWith(
       fontSize: 18,
       fontWeight: FontWeight.w600,
-      color: kInkColor,
     ),
-    bodyLarge: GoogleFonts.manrope(
+    bodyLarge: baseTextTheme.bodyLarge?.copyWith(
       fontSize: 16,
-      color: kInkColor,
     ),
-    bodyMedium: GoogleFonts.manrope(
+    bodyMedium: baseTextTheme.bodyMedium?.copyWith(
       fontSize: 14,
-      color: kInkColor,
     ),
-    labelLarge: GoogleFonts.manrope(
+    labelLarge: baseTextTheme.labelLarge?.copyWith(
       fontWeight: FontWeight.w600,
     ),
-    labelSmall: GoogleFonts.manrope(
+    labelSmall: baseTextTheme.labelSmall?.copyWith(
       fontSize: 12,
       fontWeight: FontWeight.w600,
     ),
@@ -41,6 +40,7 @@ ThemeData buildAppTheme() {
     useMaterial3: true,
     colorScheme: ColorScheme.fromSeed(seedColor: kBrandColor),
     scaffoldBackgroundColor: kSurfaceColor,
+    fontFamily: 'Manrope',
     appBarTheme: AppBarTheme(
       backgroundColor: kSurfaceColor,
       foregroundColor: kInkColor,
