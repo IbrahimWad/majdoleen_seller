@@ -336,7 +336,7 @@ class SellerAuthService {
     if (imageFile != null) {
       final request = http.MultipartRequest(
         'POST',
-        ApiConfig.uri('/v1/multivendor/seller-shop-images/update'),
+        ApiConfig.uri('/v1/multivendor/seller-shop-images/set'),
       );
       request.headers.addAll(_multipartHeaders(authToken));
       request.fields['type'] = type;
@@ -362,7 +362,7 @@ class SellerAuthService {
     }
 
     final response = await ApiHttpClient.post(
-      ApiConfig.uri('/v1/multivendor/seller-shop-images/update'),
+      ApiConfig.uri('/v1/multivendor/seller-shop-images/set'),
       headers: _headers(authToken),
       body: jsonEncode(payload),
     );
