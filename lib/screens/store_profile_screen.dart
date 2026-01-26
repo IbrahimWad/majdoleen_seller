@@ -238,7 +238,12 @@ class _StoreProfileScreenState extends State<StoreProfileScreen> {
     try {
       final response = await _sellerAuthService.fetchSellerShopDetails(authToken: token);
       final success = response['success'] == true;
-      final details = response['details'] is Map ? response['details'] as Map : null;
+      
+      // API returns data wrapper: response['data']['details'], response['data']['address']
+      final data = response['data'] is Map ? response['data'] as Map : null;
+      final details = data != null && data['details'] is Map ? data['details'] as Map : null;
+      final addressData = data != null && data['address'] is Map ? data['address'] as Map : null;
+      
       if (!mounted) return;
       if (!success) {
         setState(_clearProfileFields);
@@ -250,9 +255,13 @@ class _StoreProfileScreenState extends State<StoreProfileScreen> {
         return;
       }
 
-      // Try several common keys for lat/lng, adjust to your backend keys
-      final lat = _toDouble(details['lat'] ?? details['latitude']);
-      final lng = _toDouble(details['lng'] ?? details['longitude'] ?? details['lon']);
+      // Try several common keys for lat/lng from the address object
+      final lat = addressData != null 
+          ? _toDouble(addressData['lat'] ?? addressData['latitude'])
+          : null;
+      final lng = addressData != null 
+          ? _toDouble(addressData['lng'] ?? addressData['longitude'] ?? addressData['longtiued'])
+          : null;
 
       setState(() {
         _nameController.text = details['name']?.toString() ?? '';
@@ -262,6 +271,11 @@ class _StoreProfileScreenState extends State<StoreProfileScreen> {
         _addressController.text = details['shop_address']?.toString() ?? '';
         _metaTitleController.text = details['meta_title']?.toString() ?? '';
         _metaDescriptionController.text = details['meta_description']?.toString() ?? '';
+
+        // Update address field from the address object if available
+        if (addressData != null && addressData['address'] != null) {
+          _addressController.text = addressData['address']?.toString() ?? _addressController.text;
+        }
 
         _metaImageUrl = _cacheBust(
           _resolveMediaUrl(
@@ -335,6 +349,10 @@ class _StoreProfileScreenState extends State<StoreProfileScreen> {
 
     setState(() => _isSaving = true);
     try {
+      final latitude = _selectedLat;
+      final longitude = _selectedLng;
+      final address = _addressController.text.trim();
+
       final response = await _sellerAuthService.updateSellerShopDetails(
         authToken: token,
         shopName: shopName,
@@ -342,10 +360,18 @@ class _StoreProfileScreenState extends State<StoreProfileScreen> {
         shopSlug: shopSlug,
         sellerPhone: _sellerPhoneController.text.trim(),
         shopAddress: _addressController.text.trim(),
+        latitude: latitude,
+        longitude: longitude,
+        address: address,
       );
 
       final success = response['success'] == true;
-      final details = response['details'] is Map ? response['details'] as Map : null;
+      
+      // API returns data wrapper: response['data']['details'], response['data']['address']
+      final data = response['data'] is Map ? response['data'] as Map : null;
+      final details = data != null && data['details'] is Map ? data['details'] as Map : null;
+      final addressData = data != null && data['address'] is Map ? data['address'] as Map : null;
+      
       if (!mounted) return;
       if (!success || details == null) {
         showAppSnackBar(context, l10n.storeProfileUpdateFailed);
@@ -371,6 +397,26 @@ class _StoreProfileScreenState extends State<StoreProfileScreen> {
         }
 
         _addressController.text = details['shop_address']?.toString() ?? _addressController.text;
+        
+        // Update address from the address object if available
+        if (addressData != null && addressData['address'] != null) {
+          _addressController.text = addressData['address']?.toString() ?? _addressController.text;
+        }
+
+        // Update latitude and longitude from response
+        final lat = addressData != null 
+            ? _toDouble(addressData['lat'] ?? addressData['latitude'])
+            : null;
+        final lng = addressData != null 
+            ? _toDouble(addressData['lng'] ?? addressData['longitude'] ?? addressData['longtiued'])
+            : null;
+            
+        if (lat != null && lng != null) {
+          _selectedLat = lat;
+          _selectedLng = lng;
+          _latController.text = lat.toStringAsFixed(6);
+          _lngController.text = lng.toStringAsFixed(6);
+        }
 
         _logoUrl = details['logo']?.toString() ?? details['shop_logo']?.toString() ?? _logoUrl;
 
