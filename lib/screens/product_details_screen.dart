@@ -42,6 +42,7 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
   Future<void> _loadProductDetails() async {
     final token = await _authStorage.readToken();
     if (!mounted) return;
+    //update
 
     if (token == null || token.isEmpty) {
       final l10n = AppLocalizations.of(context);
