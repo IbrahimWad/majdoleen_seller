@@ -23,7 +23,7 @@ class PhoneVerificationService {
       codeAutoRetrievalTimeout: (String verificationId) {
         _verificationId = verificationId;
       },
-      timeout: const Duration(seconds: 60),
+      timeout: const Duration(seconds: 120),
     );
   }
 

@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:typed_data';
 
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
@@ -16,14 +17,11 @@ class ApiHttpClient {
   static Dio _buildDio() {
     final dio = Dio(
       BaseOptions(
-        connectTimeout: const Duration(seconds: 60),
-        sendTimeout: const Duration(seconds: 60),
-        receiveTimeout: const Duration(seconds: 120),
+
         validateStatus: (_) => true,
         responseType: ResponseType.plain,
         headers: <String, dynamic>{
           'User-Agent': ApiConfig.userAgent,
-          'Accept': 'application/json',
         },
       ),
     );
@@ -64,7 +62,6 @@ class ApiHttpClient {
       url.toString(),
       options: Options(headers: headers),
     );
-
     return _toHttpResponse(
       res,
       method: 'GET',
@@ -139,34 +136,17 @@ class ApiHttpClient {
       data = await _multipartToFormData(request);
     }
 
-    final isMultipart = request is http.MultipartRequest;
-    final options = Options(
-      method: method,
-      headers: reqHeaders,
-      responseType: ResponseType.plain,
-      validateStatus: (_) => true,
-      receiveDataWhenStatusError: true,
-      sendTimeout: isMultipart ? const Duration(seconds: 120) : null,
-      receiveTimeout: isMultipart ? const Duration(seconds: 180) : null,
+    final res = await _dio.request<String>(
+      uri.toString(),
+      data: data,
+      options: Options(
+        method: method,
+        headers: reqHeaders,
+        responseType: ResponseType.plain,
+        validateStatus: (_) => true,
+        receiveDataWhenStatusError: true,
+      ),
     );
-
-    final previousConnectTimeout = _dio.options.connectTimeout;
-    if (isMultipart) {
-      _dio.options.connectTimeout = const Duration(seconds: 60);
-    }
-
-    late final Response<String> res;
-    try {
-      res = await _dio.request<String>(
-        uri.toString(),
-        data: data,
-        options: options,
-      );
-    } finally {
-      if (isMultipart) {
-        _dio.options.connectTimeout = previousConnectTimeout;
-      }
-    }
 
     final flattenedHeaders = _flattenHeaders(res.headers.map);
     final statusCode = res.statusCode ?? 0;
@@ -188,13 +168,13 @@ class ApiHttpClient {
       isRedirect: isRedirect,
     );
   }
+
 }
 
 class _DefaultHeadersInterceptor extends Interceptor {
   @override
   void onRequest(RequestOptions options, RequestInterceptorHandler handler) {
     options.headers.putIfAbsent('User-Agent', () => ApiConfig.userAgent);
-    options.headers.putIfAbsent('Accept', () => 'application/json');
     handler.next(options);
   }
 }
@@ -208,6 +188,8 @@ class _PreparedRequest {
 
   final Object? data;
   final Options options;
+
+
   final Map<String, String>? requestHeadersForHttp;
 }
 
@@ -223,6 +205,7 @@ _PreparedRequest _prepareBodyAndHeaders({
   String? contentType;
 
   if (body is Map<String, String>) {
+
     contentType = mergedHeaders.entries
         .firstWhere(
           (e) => e.key.toLowerCase() == 'content-type',
@@ -267,11 +250,6 @@ void _applyDefaultHeaders(Map<String, String> headers) {
   final hasUserAgent = headers.keys.any((k) => k.toLowerCase() == 'user-agent');
   if (!hasUserAgent) {
     headers['User-Agent'] = ApiConfig.userAgent;
-  }
-
-  final hasAccept = headers.keys.any((k) => k.toLowerCase() == 'accept');
-  if (!hasAccept) {
-    headers['Accept'] = 'application/json';
   }
 }
 
@@ -347,6 +325,7 @@ Map<String, String> _flattenHeaders(Map<String, List<String>> headers) {
 String _sanitizePrettyLog(String input) {
   var out = input;
 
+  // Authorization header
   out = out.replaceAllMapped(
     RegExp(
       r'^(\s*authorization\s*:\s*)(.+)$',
@@ -355,6 +334,7 @@ String _sanitizePrettyLog(String input) {
     ),
         (m) => '${m[1]}***',
   );
+
 
   out = out.replaceAllMapped(
     RegExp(
@@ -365,6 +345,7 @@ String _sanitizePrettyLog(String input) {
         (m) => '${m[1]}***',
   );
 
+  // JSON keys
   out = out.replaceAllMapped(
     RegExp(
       r'"(password|password_confirmation|token|access_token|refresh_token|otp|code|authorization)"\s*:\s*"[^"]*"',
@@ -373,6 +354,7 @@ String _sanitizePrettyLog(String input) {
         (m) => '"${m[1]}":"***"',
   );
 
+  // simple key=value logs
   out = out.replaceAllMapped(
     RegExp(
       r'(password|password_confirmation|token|access_token|refresh_token|otp|code|authorization)\s*[:=]\s*[^\s,]+',

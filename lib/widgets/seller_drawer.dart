@@ -187,9 +187,8 @@ class _SellerDrawerState extends State<SellerDrawer> {
                     const SizedBox(width: 12),
                     Expanded(
                       child: FilledButton(
-                        onPressed: () async {
+                        onPressed: () {
                           Navigator.of(dialogContext).pop();
-                          await _authStorage.clearToken();
                           navigator.pushNamedAndRemoveUntil(
                             AppRoutes.login,
                             (route) => false,

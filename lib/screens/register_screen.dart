@@ -1,9 +1,8 @@
-// register_screen.dart
 import 'dart:async';
 
 import 'package:country_picker/country_picker.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-// import 'package:flutter/foundation.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -12,7 +11,6 @@ import '../core/app_colors.dart';
 import '../core/app_localizations.dart';
 import '../core/app_routes.dart';
 import '../core/app_shadows.dart';
-import '../core/locale_controller.dart';
 import '../services/seller_auth_service.dart';
 import '../widgets/app_snackbar.dart';
 import '../widgets/login_field.dart';
@@ -90,9 +88,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
     setState(() => _isLoadingCities = true);
 
     try {
-      final cities = await _sellerAuthService.fetchStatesOfCountry(
-        countryId: _citiesCountryId,
-      );
+      final cities =
+          await _sellerAuthService.fetchStatesOfCountry(countryId: _citiesCountryId);
       if (!mounted) return;
       setState(() {
         _cities = cities;
@@ -213,7 +210,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
     if (!_formKey.currentState!.validate()) return;
 
-    if (_selectedCountry == null && !_phoneController.text.trim().startsWith('+')) {
+    if (_selectedCountry == null &&
+        !_phoneController.text.trim().startsWith('+')) {
       showAppSnackBar(context, l10n.registerCountryCodeRequired);
       return;
     }
@@ -345,7 +343,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
       await _sellerAuthService.completeRegistration(
         verificationToken: token,
         name: _fullNameController.text.trim(),
-        email: _emailController.text.trim().isEmpty ? null : _emailController.text.trim(),
+        email: _emailController.text.trim().isEmpty
+            ? null
+            : _emailController.text.trim(),
         gender: _selectedGender!,
         city: _selectedCity!,
         birthdate: _birthdateController.text.trim(),
@@ -587,8 +587,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
     );
   }
 
-  /// ✅ UPDATED: country code prefix is INSIDE the same field
-  /// ✅ ALWAYS stays on LEFT for all languages (forced LTR)
   Widget _buildPhoneWithCountryCode(
     ThemeData theme,
     AppLocalizations l10n,
@@ -596,63 +594,11 @@ class _RegisterScreenState extends State<RegisterScreen> {
     final baseLabelSize = theme.textTheme.bodyMedium?.fontSize ?? 14;
     final labelSize = baseLabelSize * 1.15;
     final fieldVerticalPadding = 16.0 * 1.15;
-
     final codeLabel = _selectedCountry == null
         ? l10n.registerCountryCodeShort
         : '+${_selectedCountry!.phoneCode}';
     final flagEmoji = _selectedCountry?.flagEmoji;
     final hintStyle = _registerHintStyle(theme);
-
-    final enabledBorder = UnderlineInputBorder(
-      borderSide: BorderSide(
-        color: kInkColor.withOpacity(0.2),
-        width: 1.2,
-      ),
-    );
-
-    const focusedBorder = UnderlineInputBorder(
-      borderSide: BorderSide(color: kBrandColor, width: 2),
-    );
-
-    Widget countryPrefix() {
-      return Material(
-        color: Colors.transparent,
-        child: InkWell(
-          onTap: _selectCountry,
-          borderRadius: BorderRadius.circular(10),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                if (flagEmoji != null) ...[
-                  Text(
-                    flagEmoji,
-                    style: theme.textTheme.bodyMedium?.copyWith(
-                      fontWeight: FontWeight.w700,
-                      fontSize: labelSize,
-                    ),
-                  ),
-                  const SizedBox(width: 6),
-                ] else ...[
-                  const Icon(Icons.public, size: 16, color: kBrandColor),
-                  const SizedBox(width: 6),
-                ],
-                Text(
-                  codeLabel,
-                  style: theme.textTheme.bodyMedium?.copyWith(
-                    fontWeight: FontWeight.w700,
-                    color: kBrandColor,
-                  ),
-                ),
-                const SizedBox(width: 4),
-                const Icon(Icons.expand_more, size: 18, color: kBrandColor),
-              ],
-            ),
-          ),
-        ),
-      );
-    }
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -666,44 +612,83 @@ class _RegisterScreenState extends State<RegisterScreen> {
           ),
         ),
         const SizedBox(height: 6),
-
-        // Force LEFT prefix always (good for phone + country code)
-        Directionality(
-          textDirection: TextDirection.ltr,
-          child: TextFormField(
-            controller: _phoneController,
-            keyboardType: TextInputType.phone,
-            textInputAction: TextInputAction.next,
-            autofillHints: const [AutofillHints.telephoneNumber],
-            inputFormatters: [
-              FilteringTextInputFormatter.digitsOnly,
-              LengthLimitingTextInputFormatter(15),
-            ],
-            enabled: !_isLoading,
-            decoration: InputDecoration(
-              hintText: l10n.phoneHint,
-              hintStyle: hintStyle,
-              contentPadding: EdgeInsets.symmetric(
-                vertical: fieldVerticalPadding,
-              ),
-              enabledBorder: enabledBorder,
-              focusedBorder: focusedBorder,
-
-              prefixIconConstraints: const BoxConstraints(minWidth: 0, minHeight: 0),
-              prefixIcon: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  countryPrefix(),
-
-                  // Divider to look like ONE field
-                  Container(
-                    height: 26,
-                    width: 1,
-                    color: kInkColor.withOpacity(0.15),
+        TextFormField(
+          controller: _phoneController,
+          keyboardType: TextInputType.phone,
+          textInputAction: TextInputAction.next,
+          autofillHints: const [AutofillHints.telephoneNumber],
+          inputFormatters: [
+            FilteringTextInputFormatter.digitsOnly,
+            LengthLimitingTextInputFormatter(15),
+          ],
+          decoration: InputDecoration(
+            hintText: l10n.phoneHint,
+            hintStyle: hintStyle,
+            prefixIconConstraints: const BoxConstraints(minHeight: 0, minWidth: 0),
+            prefixIcon: Padding(
+              padding: const EdgeInsetsDirectional.only(start: 0, end: 12),
+              child: Material(
+                color: Colors.transparent,
+                child: InkWell(
+                  borderRadius: BorderRadius.circular(10),
+                  onTap: _selectCountry,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 6,
+                    ),
+                    decoration: BoxDecoration(
+                      color: kBrandColor.withOpacity(0.12),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        if (flagEmoji != null) ...[
+                          Text(
+                            flagEmoji,
+                            style: theme.textTheme.bodyMedium?.copyWith(
+                              fontWeight: FontWeight.w700,
+                              fontSize: labelSize,
+                            ),
+                          ),
+                          const SizedBox(width: 6),
+                        ] else ...[
+                          const Icon(
+                            Icons.public,
+                            size: 16,
+                            color: kBrandColor,
+                          ),
+                          const SizedBox(width: 6),
+                        ],
+                        Text(
+                          codeLabel,
+                          style: theme.textTheme.bodyMedium?.copyWith(
+                            fontWeight: FontWeight.w700,
+                            color: kBrandColor,
+                          ),
+                        ),
+                        const SizedBox(width: 4),
+                        const Icon(
+                          Icons.expand_more,
+                          size: 18,
+                          color: kBrandColor,
+                        ),
+                      ],
+                    ),
                   ),
-                  const SizedBox(width: 10),
-                ],
+                ),
               ),
+            ),
+            contentPadding: EdgeInsets.symmetric(vertical: fieldVerticalPadding),
+            enabledBorder: UnderlineInputBorder(
+              borderSide: BorderSide(
+                color: kInkColor.withOpacity(0.2),
+                width: 1.2,
+              ),
+            ),
+            focusedBorder: const UnderlineInputBorder(
+              borderSide: BorderSide(color: kBrandColor, width: 2),
             ),
           ),
         ),
@@ -728,9 +713,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
         hintStyle: _registerHintStyle(theme),
         suffixIcon: IconButton(
           icon: Icon(
-            _obscurePassword
-                ? Icons.visibility_off_outlined
-                : Icons.visibility_outlined,
+            _obscurePassword ? Icons.visibility_off_outlined : Icons.visibility_outlined,
             color: kBrandColor,
             size: 22,
           ),
@@ -1097,15 +1080,19 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 ),
               )
               .toList(),
-          onChanged: _isLoadingCities
-              ? null
-              : (value) => setState(() {
-                    _selectedCity = value;
-                  }),
+          onChanged: _isLoadingCities ? null : (value) => setState(() {
+            _selectedCity = value;
+          }),
           validator: (value) {
-            if (_isLoadingCities) return l10n.registerCityLoading;
-            if (isEmpty) return l10n.registerCityEmpty;
-            if (value == null || value.isEmpty) return l10n.registerCityRequired;
+            if (_isLoadingCities) {
+              return l10n.registerCityLoading;
+            }
+            if (isEmpty) {
+              return l10n.registerCityEmpty;
+            }
+            if (value == null || value.isEmpty) {
+              return l10n.registerCityRequired;
+            }
             return null;
           },
           decoration: InputDecoration(
@@ -1171,7 +1158,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
         autofillHints: const [AutofillHints.email],
         hintStyle: _registerHintStyle(theme),
         validator: (value) {
-          if (value == null || value.trim().isEmpty) return null;
+          if (value == null || value.trim().isEmpty) {
+            return null;
+          }
           final email = value.trim();
           final isValid = RegExp(r'^[^@]+@[^@]+\.[^@]+').hasMatch(email);
           return isValid ? null : l10n.registerEmailInvalid;
@@ -1238,12 +1227,18 @@ class _RegisterScreenState extends State<RegisterScreen> {
           }
           final text = value.trim();
           final match = RegExp(r'^\d{4}-\d{2}-\d{2}$').hasMatch(text);
-          if (!match) return l10n.registerBirthdateFormatError;
+          if (!match) {
+            return l10n.registerBirthdateFormatError;
+          }
           final parsed = DateTime.tryParse(text);
-          if (parsed == null) return l10n.registerBirthdateFormatError;
+          if (parsed == null) {
+            return l10n.registerBirthdateFormatError;
+          }
           final today = DateTime.now();
           final todayDate = DateTime(today.year, today.month, today.day);
-          if (!parsed.isBefore(todayDate)) return l10n.registerBirthdateFutureError;
+          if (!parsed.isBefore(todayDate)) {
+            return l10n.registerBirthdateFutureError;
+          }
           return null;
         },
       ),
@@ -1257,37 +1252,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
         ),
       ),
     ];
-  }
-
-  void _showLanguageDialog(BuildContext context) {
-    final l10n = AppLocalizations.of(context);
-    final localeController = LocaleScope.of(context);
-
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: Text(l10n.settingsLanguageLabel),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            ListTile(
-              title: const Text('English'),
-              onTap: () {
-                localeController.setLocale(const Locale('en'));
-                Navigator.of(context).pop();
-              },
-            ),
-            ListTile(
-              title: const Text('العربية'),
-              onTap: () {
-                localeController.setLocale(const Locale('ar'));
-                Navigator.of(context).pop();
-              },
-            ),
-          ],
-        ),
-      ),
-    );
   }
 
   @override
@@ -1322,93 +1286,82 @@ class _RegisterScreenState extends State<RegisterScreen> {
       ),
       child: Scaffold(
         backgroundColor: surface,
-        body: Stack(
-          children: [
-            SafeArea(
-              top: false,
-              child: SingleChildScrollView(
-                child: Form(
-                  key: _formKey,
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      SizedBox(
-                        height: 260,
-                        width: double.infinity,
-                        child: ClipPath(
-                          clipper: LoginWaveClipper(),
-                          child: Container(
-                            color: kBrandColor,
-                            child: Align(
-                              alignment: Alignment.topCenter,
-                              child: Padding(
-                                padding: EdgeInsets.only(top: topInset + 24),
-                                child: Image.asset(
-                                  'assets/branding/majdoleen_splash.png',
-                                  height: 110,
-                                  fit: BoxFit.contain,
-                                ),
-                              ),
+        body: SafeArea(
+          top: false,
+          child: SingleChildScrollView(
+            child: Form(
+              key: _formKey,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  SizedBox(
+                    height: 260,
+                    width: double.infinity,
+                    child: ClipPath(
+                      clipper: LoginWaveClipper(),
+                      child: Container(
+                        color: kBrandColor,
+                        child: Align(
+                          alignment: Alignment.topCenter,
+                          child: Padding(
+                            padding: EdgeInsets.only(top: topInset + 24),
+                            child: Image.asset(
+                              'assets/branding/majdoleen_splash.png',
+                              height: 110,
+                              fit: BoxFit.contain,
                             ),
                           ),
                         ),
                       ),
-                      Transform.translate(
-                        offset: const Offset(0, -40),
-                        child: Padding(
-                          padding: const EdgeInsets.fromLTRB(24, 0, 24, 32),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Align(
-                                alignment:
-                                    isRtl ? Alignment.centerRight : Alignment.centerLeft,
-                                child: IntrinsicWidth(
-                                  child: Column(
-                                    crossAxisAlignment:
-                                        isRtl ? CrossAxisAlignment.end : CrossAxisAlignment.start,
-                                    children: [
-                                      Text(
-                                        l10n.registerTitle,
-                                        style: theme.textTheme.headlineLarge?.copyWith(
-                                          fontWeight: FontWeight.w700,
-                                          color: kInkColor,
-                                        ),
-                                      ),
-                                      const SizedBox(height: 8),
-                                      Container(
-                                        height: 4,
-                                        decoration: BoxDecoration(
-                                          color: kBrandColor,
-                                          borderRadius: BorderRadius.circular(6),
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              ),
-                              const SizedBox(height: 12),
-                              _buildStepIndicator(theme, l10n),
-                              const SizedBox(height: 20),
-                              ...stepContent,
-                            ],
-                          ),
-                        ),
-                      ),
-                    ],
+                    ),
                   ),
-                ),
+                  Transform.translate(
+                    offset: const Offset(0, -40),
+                    child: Padding(
+                      padding: const EdgeInsets.fromLTRB(24, 0, 24, 32),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Align(
+                            alignment:
+                                isRtl ? Alignment.centerRight : Alignment.centerLeft,
+                            child: IntrinsicWidth(
+                              child: Column(
+                                crossAxisAlignment: isRtl
+                                    ? CrossAxisAlignment.end
+                                    : CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    l10n.registerTitle,
+                                    style: theme.textTheme.headlineLarge?.copyWith(
+                                      fontWeight: FontWeight.w700,
+                                      color: kInkColor,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 8),
+                                  Container(
+                                    height: 4,
+                                    decoration: BoxDecoration(
+                                      color: kBrandColor,
+                                      borderRadius: BorderRadius.circular(6),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 12),
+                          _buildStepIndicator(theme, l10n),
+                          const SizedBox(height: 20),
+                          ...stepContent,
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ),
-            Positioned(
-              top: topInset + 10,
-              right: 10,
-              child: IconButton(
-                icon: const Icon(Icons.language, color: Colors.white),
-                onPressed: () => _showLanguageDialog(context),
-              ),
-            ),
-          ],
+          ),
         ),
       ),
     );

@@ -1,4 +1,3 @@
-// forgot_password_screen.dart
 import 'package:country_picker/country_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -6,7 +5,6 @@ import 'package:flutter/services.dart';
 import '../core/app_colors.dart';
 import '../core/app_localizations.dart';
 import '../core/app_routes.dart';
-import '../core/locale_controller.dart';
 import '../services/seller_auth_service.dart';
 import '../widgets/app_snackbar.dart';
 import '../widgets/login_wave_clipper.dart';
@@ -23,7 +21,7 @@ class ForgotPasswordScreen extends StatefulWidget {
 class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
   final TextEditingController _phoneController = TextEditingController();
   final SellerAuthService _authService = SellerAuthService();
-
+  
   Country? _selectedCountry;
   bool _isLoading = false;
 
@@ -86,7 +84,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
   Future<void> _sendResetOtp() async {
     final l10n = AppLocalizations.of(context);
     final rawPhone = _phoneController.text.trim();
-
+    
     if (rawPhone.isEmpty) {
       showAppSnackBar(context, l10n.forgotPasswordPhoneRequired);
       return;
@@ -108,35 +106,36 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
 
     try {
       final result = await _authService.sendForgotPasswordOtp(phone: phone);
-
-      if (!mounted) return;
-
-      if (result['success'] == true) {
-        showAppSnackBar(context, l10n.forgotPasswordOtpSent);
-
-        Navigator.of(context).pushNamed(
-          AppRoutes.forgotPasswordVerification,
-          arguments: {
-            'phone': phone,
-            'reset_token': result['reset_token'],
-          },
-        );
-      } else {
-        final error = result['error'] ??
-            result['message'] ??
-            l10n.forgotPasswordFailed;
-        showAppSnackBar(context, error.toString());
+      
+      if (mounted) {
+        if (result['success'] == true) {
+          showAppSnackBar(context, l10n.forgotPasswordOtpSent);
+          
+          // Navigate to OTP verification screen
+          if (mounted) {
+            Navigator.of(context).pushNamed(
+              AppRoutes.forgotPasswordVerification,
+              arguments: {
+                'phone': phone,
+                'reset_token': result['reset_token'],
+              },
+            );
+          }
+        } else {
+          final error = result['error'] ?? result['message'] ?? l10n.forgotPasswordFailed;
+          showAppSnackBar(context, error.toString());
+        }
       }
     } catch (e) {
       if (mounted) {
         final l10n = AppLocalizations.of(context);
         String message = l10n.forgotPasswordFailed;
-
+        
         if (e is Exception) {
-          final errorMsg = e.toString().replaceAll('Exception: ', '').trim();
+          final errorMsg = e.toString().replaceAll('Exception: ', '');
           message = errorMsg.isEmpty ? message : errorMsg;
         }
-
+        
         showAppSnackBar(context, message);
       }
     } finally {
@@ -146,44 +145,6 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
     }
   }
 
-  void _showLanguageDialog(BuildContext context) {
-    final l10n = AppLocalizations.of(context);
-    final localeController = LocaleScope.of(context);
-
-    showDialog(
-      context: context,
-      builder: (context) {
-        return AlertDialog(
-          title: Text(l10n.settingsLanguageLabel),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              ListTile(
-                leading: const Icon(Icons.language),
-                title: Text(l10n.settingsLanguageEnglish),
-                onTap: () {
-                  localeController.setLocale(const Locale('en'));
-                  Navigator.of(context).pop();
-                },
-              ),
-              ListTile(
-                leading: const Icon(Icons.language),
-                title: Text(l10n.settingsLanguageArabic),
-                onTap: () {
-                  localeController.setLocale(const Locale('ar'));
-                  Navigator.of(context).pop();
-                },
-              ),
-            ],
-          ),
-        );
-      },
-    );
-  }
-
-  /// ✅ Same behavior as LoginScreen:
-  /// - Country picker is INSIDE the same phone field (prefix)
-  /// - Prefix stays on the LEFT for all languages (forced LTR for the field)
   Widget _buildPhoneWithCountryCode(
     ThemeData theme,
     AppLocalizations l10n,
@@ -191,64 +152,11 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
     final baseLabelSize = theme.textTheme.bodyMedium?.fontSize ?? 14;
     final labelSize = baseLabelSize * 1.15;
     final fieldVerticalPadding = 16.0 * 1.15;
-
     final codeLabel = _selectedCountry == null
         ? l10n.registerCountryCodeShort
         : '+${_selectedCountry!.phoneCode}';
     final flagEmoji = _selectedCountry?.flagEmoji;
-
     final hintStyle = _forgotPasswordHintStyle(theme);
-
-    final enabledBorder = UnderlineInputBorder(
-      borderSide: BorderSide(
-        color: kInkColor.withOpacity(0.2),
-        width: 1.2,
-      ),
-    );
-
-    const focusedBorder = UnderlineInputBorder(
-      borderSide: BorderSide(color: kBrandColor, width: 2),
-    );
-
-    Widget countryPrefix() {
-      return Material(
-        color: Colors.transparent,
-        child: InkWell(
-          onTap: _isLoading ? null : _selectCountry,
-          borderRadius: BorderRadius.circular(10),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                if (flagEmoji != null) ...[
-                  Text(
-                    flagEmoji,
-                    style: theme.textTheme.bodyMedium?.copyWith(
-                      fontWeight: FontWeight.w700,
-                      fontSize: labelSize,
-                    ),
-                  ),
-                  const SizedBox(width: 6),
-                ] else ...[
-                  const Icon(Icons.public, size: 16, color: kBrandColor),
-                  const SizedBox(width: 6),
-                ],
-                Text(
-                  codeLabel,
-                  style: theme.textTheme.bodyMedium?.copyWith(
-                    fontWeight: FontWeight.w700,
-                    color: kBrandColor,
-                  ),
-                ),
-                const SizedBox(width: 4),
-                const Icon(Icons.expand_more, size: 18, color: kBrandColor),
-              ],
-            ),
-          ),
-        ),
-      );
-    }
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -262,48 +170,85 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
           ),
         ),
         const SizedBox(height: 6),
-
-        // Force LEFT prefix always (good for phone numbers + country code)
-        Directionality(
-          textDirection: TextDirection.ltr,
-          child: TextFormField(
-            controller: _phoneController,
-            keyboardType: TextInputType.phone,
-            textInputAction: TextInputAction.done,
-            autofillHints: const [AutofillHints.telephoneNumber],
-            inputFormatters: [
-              FilteringTextInputFormatter.digitsOnly,
-              LengthLimitingTextInputFormatter(15), 
-            ],
-            enabled: !_isLoading,
-            onFieldSubmitted: (_) => _sendResetOtp(),
-            decoration: InputDecoration(
-              hintText: l10n.phoneHint,
-              hintStyle: hintStyle,
-              contentPadding: EdgeInsets.symmetric(
-                vertical: fieldVerticalPadding,
-              ),
-              enabledBorder: enabledBorder,
-              focusedBorder: focusedBorder,
-
-              // Make the prefix behave like part of the same field
-              prefixIconConstraints:
-                  const BoxConstraints(minWidth: 0, minHeight: 0),
-              prefixIcon: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  countryPrefix(),
-
-                  // Divider -> gives "single combined control" look
-                  Container(
-                    height: 26,
-                    width: 1,
-                    color: kInkColor.withOpacity(0.15),
+        TextFormField(
+          controller: _phoneController,
+          keyboardType: TextInputType.phone,
+          textInputAction: TextInputAction.next,
+          autofillHints: const [AutofillHints.telephoneNumber],
+          inputFormatters: [
+            FilteringTextInputFormatter.digitsOnly,
+            LengthLimitingTextInputFormatter(15),
+          ],
+          enabled: !_isLoading,
+          onFieldSubmitted: (_) => _sendResetOtp(),
+          decoration: InputDecoration(
+            hintText: l10n.phoneHint,
+            hintStyle: hintStyle,
+            prefixIconConstraints: const BoxConstraints(minHeight: 0, minWidth: 0),
+            prefixIcon: Padding(
+              padding: const EdgeInsetsDirectional.only(start: 0, end: 12),
+              child: Material(
+                color: Colors.transparent,
+                child: InkWell(
+                  borderRadius: BorderRadius.circular(10),
+                  onTap: _selectCountry,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 6,
+                    ),
+                    decoration: BoxDecoration(
+                      color: kBrandColor.withOpacity(0.12),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        if (flagEmoji != null) ...[
+                          Text(
+                            flagEmoji,
+                            style: theme.textTheme.bodyMedium?.copyWith(
+                              fontWeight: FontWeight.w700,
+                              fontSize: labelSize,
+                            ),
+                          ),
+                          const SizedBox(width: 6),
+                        ] else ...[
+                          const Icon(
+                            Icons.public,
+                            size: 16,
+                            color: kBrandColor,
+                          ),
+                          const SizedBox(width: 6),
+                        ],
+                        Text(
+                          codeLabel,
+                          style: theme.textTheme.bodyMedium?.copyWith(
+                            fontWeight: FontWeight.w700,
+                            color: kBrandColor,
+                          ),
+                        ),
+                        const SizedBox(width: 4),
+                        const Icon(
+                          Icons.expand_more,
+                          size: 18,
+                          color: kBrandColor,
+                        ),
+                      ],
+                    ),
                   ),
-
-                  const SizedBox(width: 10),
-                ],
+                ),
               ),
+            ),
+            contentPadding: EdgeInsets.symmetric(vertical: fieldVerticalPadding),
+            enabledBorder: UnderlineInputBorder(
+              borderSide: BorderSide(
+                color: kInkColor.withOpacity(0.2),
+                width: 1.2,
+              ),
+            ),
+            focusedBorder: const UnderlineInputBorder(
+              borderSide: BorderSide(color: kBrandColor, width: 2),
             ),
           ),
         ),
@@ -331,200 +276,186 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
       ),
       child: Scaffold(
         backgroundColor: surface,
-        body: Stack(
-          children: [
-            SafeArea(
-              top: false,
-              child: SingleChildScrollView(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    SizedBox(
-                      height: 300,
-                      width: double.infinity,
-                      child: ClipPath(
-                        clipper: LoginWaveClipper(),
-                        child: Container(
-                          color: kBrandColor,
-                          child: Align(
-                            alignment: Alignment.topCenter,
-                            child: Padding(
-                              padding: EdgeInsets.only(top: topInset + 24),
-                              child: Image.asset(
-                                'assets/branding/majdoleen_splash.png',
-                                height: 110,
-                                fit: BoxFit.contain,
+        body: SafeArea(
+          top: false,
+          child: SingleChildScrollView(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                SizedBox(
+                  height: 300,
+                  width: double.infinity,
+                  child: ClipPath(
+                    clipper: LoginWaveClipper(),
+                    child: Container(
+                      color: kBrandColor,
+                      child: Align(
+                        alignment: Alignment.topCenter,
+                        child: Padding(
+                          padding: EdgeInsets.only(top: topInset + 24),
+                          child: Image.asset(
+                            'assets/branding/majdoleen_splash.png',
+                            height: 110,
+                            fit: BoxFit.contain,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(24, 24, 24, 32),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Align(
+                        alignment:
+                            isRtl ? Alignment.centerRight : Alignment.centerLeft,
+                        child: IntrinsicWidth(
+                          child: Column(
+                            crossAxisAlignment: isRtl
+                                ? CrossAxisAlignment.end
+                                : CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                l10n.forgotPasswordTitle,
+                                style: theme.textTheme.headlineLarge?.copyWith(
+                                  fontWeight: FontWeight.w700,
+                                  color: kInkColor,
+                                ),
+                              ),
+                              const SizedBox(height: 8),
+                              Container(
+                                height: 4,
+                                decoration: BoxDecoration(
+                                  color: kBrandColor,
+                                  borderRadius: BorderRadius.circular(6),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      Text(
+                        l10n.forgotPasswordSubtitle,
+                        style: theme.textTheme.bodyMedium?.copyWith(
+                          color: kInkColor.withOpacity(0.7),
+                          fontSize:
+                              (theme.textTheme.bodyMedium?.fontSize ?? 14) *
+                                  1.05,
+                        ),
+                      ),
+                      const SizedBox(height: 24),
+                      _buildPhoneWithCountryCode(theme, l10n),
+                      const SizedBox(height: 16),
+                      Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: kBrandColor.withOpacity(0.08),
+                          borderRadius: BorderRadius.circular(16),
+                        ),
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Icon(
+                              Icons.info_outline,
+                              color: kBrandColor,
+                              size: 20,
+                            ),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: Text(
+                                l10n.forgotPasswordHelper,
+                                style: theme.textTheme.bodySmall?.copyWith(
+                                  color: kInkColor.withOpacity(0.7),
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 28),
+                      SizedBox(
+                        width: double.infinity,
+                        child: DecoratedBox(
+                          decoration: BoxDecoration(
+                            gradient: const LinearGradient(
+                              colors: [kBrandColor, kBrandDark],
+                              begin: Alignment.topLeft,
+                              end: Alignment.bottomRight,
+                            ),
+                            borderRadius: BorderRadius.circular(18),
+                            boxShadow: [
+                              BoxShadow(
+                                color: kBrandColor.withOpacity(0.35),
+                                blurRadius: 18,
+                                offset: const Offset(0, 10),
+                              ),
+                            ],
+                          ),
+                          child: Material(
+                            color: Colors.transparent,
+                            child: InkWell(
+                              borderRadius: BorderRadius.circular(18),
+                              onTap: _isLoading ? null : _sendResetOtp,
+                              child: Padding(
+                                padding:
+                                    const EdgeInsets.symmetric(vertical: 16),
+                                child: Center(
+                                  child: _isLoading
+                                      ? const SizedBox(
+                                          height: 20,
+                                          width: 20,
+                                          child: CircularProgressIndicator(
+                                            valueColor:
+                                                AlwaysStoppedAnimation<Color>(
+                                                    Colors.white),
+                                            strokeWidth: 2,
+                                          ),
+                                        )
+                                      : Text(
+                                          l10n.forgotPasswordAction,
+                                          style: theme.textTheme.titleLarge
+                                              ?.copyWith(
+                                            color: Colors.white,
+                                            fontWeight: FontWeight.w700,
+                                          ),
+                                        ),
+                                ),
                               ),
                             ),
                           ),
                         ),
                       ),
-                    ),
-                    Padding(
-                      padding: const EdgeInsets.fromLTRB(24, 24, 24, 32),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
+                      const SizedBox(height: 16),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          Align(
-                            alignment:
-                                isRtl ? Alignment.centerRight : Alignment.centerLeft,
-                            child: IntrinsicWidth(
-                              child: Column(
-                                crossAxisAlignment: isRtl
-                                    ? CrossAxisAlignment.end
-                                    : CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    l10n.forgotPasswordTitle,
-                                    style: theme.textTheme.headlineLarge?.copyWith(
-                                      fontWeight: FontWeight.w700,
-                                      color: kInkColor,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 8),
-                                  Container(
-                                    height: 4,
-                                    decoration: BoxDecoration(
-                                      color: kBrandColor,
-                                      borderRadius: BorderRadius.circular(6),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ),
-                          const SizedBox(height: 12),
                           Text(
-                            l10n.forgotPasswordSubtitle,
+                            l10n.forgotPasswordRememberPrompt,
                             style: theme.textTheme.bodyMedium?.copyWith(
                               color: kInkColor.withOpacity(0.7),
-                              fontSize:
-                                  (theme.textTheme.bodyMedium?.fontSize ?? 14) *
-                                      1.05,
                             ),
                           ),
-                          const SizedBox(height: 24),
-
-                          _buildPhoneWithCountryCode(theme, l10n),
-
-                          const SizedBox(height: 16),
-                          Container(
-                            padding: const EdgeInsets.all(12),
-                            decoration: BoxDecoration(
-                              color: kBrandColor.withOpacity(0.08),
-                              borderRadius: BorderRadius.circular(16),
+                          TextButton(
+                            onPressed: () {
+                              Navigator.of(context).pop();
+                            },
+                            style: TextButton.styleFrom(
+                              foregroundColor: kBrandColor,
                             ),
-                            child: Row(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                const Icon(
-                                  Icons.info_outline,
-                                  color: kBrandColor,
-                                  size: 20,
-                                ),
-                                const SizedBox(width: 10),
-                                Expanded(
-                                  child: Text(
-                                    l10n.forgotPasswordHelper,
-                                    style: theme.textTheme.bodySmall?.copyWith(
-                                      color: kInkColor.withOpacity(0.7),
-                                      fontWeight: FontWeight.w600,
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                          const SizedBox(height: 28),
-                          SizedBox(
-                            width: double.infinity,
-                            child: DecoratedBox(
-                              decoration: BoxDecoration(
-                                gradient: const LinearGradient(
-                                  colors: [kBrandColor, kBrandDark],
-                                  begin: Alignment.topLeft,
-                                  end: Alignment.bottomRight,
-                                ),
-                                borderRadius: BorderRadius.circular(18),
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: kBrandColor.withOpacity(0.35),
-                                    blurRadius: 18,
-                                    offset: const Offset(0, 10),
-                                  ),
-                                ],
-                              ),
-                              child: Material(
-                                color: Colors.transparent,
-                                child: InkWell(
-                                  borderRadius: BorderRadius.circular(18),
-                                  onTap: _isLoading ? null : _sendResetOtp,
-                                  child: Padding(
-                                    padding:
-                                        const EdgeInsets.symmetric(vertical: 16),
-                                    child: Center(
-                                      child: _isLoading
-                                          ? const SizedBox(
-                                              height: 20,
-                                              width: 20,
-                                              child: CircularProgressIndicator(
-                                                valueColor:
-                                                    AlwaysStoppedAnimation<Color>(
-                                                        Colors.white),
-                                                strokeWidth: 2,
-                                              ),
-                                            )
-                                          : Text(
-                                              l10n.forgotPasswordAction,
-                                              style: theme.textTheme.titleLarge
-                                                  ?.copyWith(
-                                                color: Colors.white,
-                                                fontWeight: FontWeight.w700,
-                                              ),
-                                            ),
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ),
-                          const SizedBox(height: 16),
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Text(
-                                l10n.forgotPasswordRememberPrompt,
-                                style: theme.textTheme.bodyMedium?.copyWith(
-                                  color: kInkColor.withOpacity(0.7),
-                                ),
-                              ),
-                              TextButton(
-                                onPressed: () {
-                                  Navigator.of(context).pop();
-                                },
-                                style: TextButton.styleFrom(
-                                  foregroundColor: kBrandColor,
-                                ),
-                                child: Text(l10n.forgotPasswordBackToLogin),
-                              ),
-                            ],
+                            child: Text(l10n.forgotPasswordBackToLogin),
                           ),
                         ],
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
-              ),
+              ],
             ),
-            Positioned(
-              top: topInset + 10,
-              right: 10,
-              child: IconButton(
-                icon: const Icon(Icons.language, color: Colors.white),
-                onPressed: () => _showLanguageDialog(context),
-              ),
-            ),
-          ],
+          ),
         ),
       ),
     );

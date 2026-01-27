@@ -17,7 +17,6 @@ import '../widgets/seller_bottom_bar.dart';
 import '../widgets/seller_drawer.dart';
 import '../widgets/summary_card.dart';
 import 'add_product_screen.dart';
-import 'product_details_screen.dart';
 
 class ProductsScreen extends StatefulWidget {
   static const String routeName = AppRoutes.products;
@@ -34,7 +33,7 @@ class _ProductsScreenState extends State<ProductsScreen> {
   final SellerProductsService _productsService = SellerProductsService();
   final AuthStorage _authStorage = AuthStorage();
 
-  static const Duration _requestTimeout = Duration(seconds: 60);
+  static const Duration _requestTimeout = Duration(seconds: 20);
 
   Timer? _searchDebounce;
   String _searchQuery = '';
@@ -211,7 +210,7 @@ class _ProductsScreenState extends State<ProductsScreen> {
   void _onSearchChanged(String value) {
     debugPrint('ProductsScreen search changed: "$value"');
     _searchDebounce?.cancel();
-    _searchDebounce = Timer(const Duration(milliseconds: 500), () {
+    _searchDebounce = Timer(const Duration(milliseconds: 350), () {
       if (!mounted) return;
       debugPrint('ProductsScreen search debounce fired: "$value"');
       setState(() {
@@ -266,14 +265,24 @@ class _ProductsScreenState extends State<ProductsScreen> {
   }
 
   Future<void> _openEditProduct(SellerProductSummary product) async {
-    debugPrint('ProductsScreen open product details: id=${product.id}');
-    await Navigator.of(context).push<void>(
+    final l10n = AppLocalizations.of(context);
+    debugPrint('ProductsScreen open edit product: id=${product.id}');
+    final result = await Navigator.of(context).push<ProductFormResult>(
       MaterialPageRoute(
-        builder: (_) => ProductDetailsScreen(product: product),
+        builder: (_) => AddProductScreen(productId: product.id),
       ),
     );
     if (!mounted) return;
-    debugPrint('ProductsScreen product details closed');
+    debugPrint('ProductsScreen edit product result: ${result?.action}');
+    if (result?.action == ProductFormAction.deleted) {
+      await _loadProducts(reset: true);
+      showAppSnackBar(context, l10n.editProductDeletedMessage);
+      return;
+    }
+    if (result?.action == ProductFormAction.saved) {
+      await _loadProducts(reset: true);
+      showAppSnackBar(context, l10n.editProductUpdatedMessage);
+    }
   }
 
   Future<void> _showQuickActions(SellerProductSummary product) async {
@@ -501,29 +510,140 @@ class _ProductsScreenState extends State<ProductsScreen> {
   }
 
   Future<_DiscountInput?> _showDiscountDialog(AppLocalizations l10n) async {
+    final amountController = TextEditingController();
+    int type = 2;
+
     debugPrint('ProductsScreen show discount dialog');
     final result = await showDialog<_DiscountInput>(
       context: context,
-      builder: (context) => _DiscountDialog(l10n: l10n),
+      builder: (context) => AlertDialog(
+        title: Text(l10n.productsDiscountDialogTitle),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            DropdownButtonFormField<int>(
+              initialValue: type,
+              decoration: InputDecoration(labelText: l10n.productsDiscountTypeLabel),
+              items: [
+                DropdownMenuItem(
+                  value: 1,
+                  child: Text(l10n.productsDiscountTypeFixed),
+                ),
+                DropdownMenuItem(
+                  value: 2,
+                  child: Text(l10n.productsDiscountTypePercent),
+                ),
+              ],
+              onChanged: (value) {
+                if (value == null) return;
+                type = value;
+              },
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: amountController,
+              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              decoration: InputDecoration(labelText: l10n.productsDiscountAmountLabel),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: Text(l10n.addProductCancel),
+          ),
+          FilledButton(
+            onPressed: () {
+              final amount = double.tryParse(amountController.text.trim()) ?? 0;
+              Navigator.of(context).pop(_DiscountInput(type: type, amount: amount));
+            },
+            child: Text(l10n.editProductSaveAction),
+          ),
+        ],
+      ),
     );
+
+    amountController.dispose();
     return result;
   }
 
   Future<_PriceInput?> _showPriceDialog(AppLocalizations l10n) async {
+    final purchaseController = TextEditingController();
+    final unitController = TextEditingController();
+
     debugPrint('ProductsScreen show price dialog');
     final result = await showDialog<_PriceInput>(
       context: context,
-      builder: (context) => _PriceDialog(l10n: l10n),
+      builder: (context) => AlertDialog(
+        title: Text(l10n.productsPriceDialogTitle),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: purchaseController,
+              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              decoration: InputDecoration(labelText: l10n.productsPurchasePriceLabel),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: unitController,
+              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              decoration: InputDecoration(labelText: l10n.productsUnitPriceLabel),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: Text(l10n.addProductCancel),
+          ),
+          FilledButton(
+            onPressed: () {
+              final purchase = double.tryParse(purchaseController.text.trim()) ?? 0;
+              final unit = double.tryParse(unitController.text.trim()) ?? 0;
+              Navigator.of(context).pop(_PriceInput(purchasePrice: purchase, unitPrice: unit));
+            },
+            child: Text(l10n.editProductSaveAction),
+          ),
+        ],
+      ),
     );
+
+    purchaseController.dispose();
+    unitController.dispose();
     return result;
   }
 
   Future<int?> _showStockDialog(AppLocalizations l10n) async {
+    final quantityController = TextEditingController();
+
     debugPrint('ProductsScreen show stock dialog');
     final result = await showDialog<int>(
       context: context,
-      builder: (context) => _StockDialog(l10n: l10n),
+      builder: (context) => AlertDialog(
+        title: Text(l10n.productsStockDialogTitle),
+        content: TextField(
+          controller: quantityController,
+          keyboardType: TextInputType.number,
+          decoration: InputDecoration(labelText: l10n.productsQuantityLabel),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: Text(l10n.addProductCancel),
+          ),
+          FilledButton(
+            onPressed: () {
+              final quantity = int.tryParse(quantityController.text.trim()) ?? 0;
+              Navigator.of(context).pop(quantity);
+            },
+            child: Text(l10n.editProductSaveAction),
+          ),
+        ],
+      ),
     );
+
+    quantityController.dispose();
     return result;
   }
 
@@ -1058,201 +1178,6 @@ class _VariationStockInput {
     required this.code,
     required this.quantityController,
   });
-}
-
-class _DiscountDialog extends StatefulWidget {
-  final AppLocalizations l10n;
-
-  const _DiscountDialog({required this.l10n});
-
-  @override
-  State<_DiscountDialog> createState() => _DiscountDialogState();
-}
-
-class _DiscountDialogState extends State<_DiscountDialog> {
-  late final TextEditingController _amountController;
-  int _type = 2;
-
-  @override
-  void initState() {
-    super.initState();
-    _amountController = TextEditingController();
-  }
-
-  @override
-  void dispose() {
-    _amountController.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final l10n = widget.l10n;
-    return AlertDialog(
-      title: Text(l10n.productsDiscountDialogTitle),
-      content: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          DropdownButtonFormField<int>(
-            initialValue: _type,
-            decoration: InputDecoration(labelText: l10n.productsDiscountTypeLabel),
-            items: [
-              DropdownMenuItem(
-                value: 1,
-                child: Text(l10n.productsDiscountTypeFixed),
-              ),
-              DropdownMenuItem(
-                value: 2,
-                child: Text(l10n.productsDiscountTypePercent),
-              ),
-            ],
-            onChanged: (value) {
-              if (value == null) return;
-              setState(() {
-                _type = value;
-              });
-            },
-          ),
-          const SizedBox(height: 12),
-          TextField(
-            controller: _amountController,
-            keyboardType: const TextInputType.numberWithOptions(decimal: true),
-            decoration: InputDecoration(labelText: l10n.productsDiscountAmountLabel),
-          ),
-        ],
-      ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.of(context).pop(),
-          child: Text(l10n.addProductCancel),
-        ),
-        FilledButton(
-          onPressed: () {
-            final amount = double.tryParse(_amountController.text.trim()) ?? 0;
-            Navigator.of(context).pop(_DiscountInput(type: _type, amount: amount));
-          },
-          child: Text(l10n.editProductSaveAction),
-        ),
-      ],
-    );
-  }
-}
-
-class _PriceDialog extends StatefulWidget {
-  final AppLocalizations l10n;
-
-  const _PriceDialog({required this.l10n});
-
-  @override
-  State<_PriceDialog> createState() => _PriceDialogState();
-}
-
-class _PriceDialogState extends State<_PriceDialog> {
-  late final TextEditingController _purchaseController;
-  late final TextEditingController _unitController;
-
-  @override
-  void initState() {
-    super.initState();
-    _purchaseController = TextEditingController();
-    _unitController = TextEditingController();
-  }
-
-  @override
-  void dispose() {
-    _purchaseController.dispose();
-    _unitController.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final l10n = widget.l10n;
-    return AlertDialog(
-      title: Text(l10n.productsPriceDialogTitle),
-      content: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          TextField(
-            controller: _purchaseController,
-            keyboardType: const TextInputType.numberWithOptions(decimal: true),
-            decoration: InputDecoration(labelText: l10n.productsPurchasePriceLabel),
-          ),
-          const SizedBox(height: 12),
-          TextField(
-            controller: _unitController,
-            keyboardType: const TextInputType.numberWithOptions(decimal: true),
-            decoration: InputDecoration(labelText: l10n.productsUnitPriceLabel),
-          ),
-        ],
-      ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.of(context).pop(),
-          child: Text(l10n.addProductCancel),
-        ),
-        FilledButton(
-          onPressed: () {
-            final purchase = double.tryParse(_purchaseController.text.trim()) ?? 0;
-            final unit = double.tryParse(_unitController.text.trim()) ?? 0;
-            Navigator.of(context).pop(_PriceInput(purchasePrice: purchase, unitPrice: unit));
-          },
-          child: Text(l10n.editProductSaveAction),
-        ),
-      ],
-    );
-  }
-}
-
-class _StockDialog extends StatefulWidget {
-  final AppLocalizations l10n;
-
-  const _StockDialog({required this.l10n});
-
-  @override
-  State<_StockDialog> createState() => _StockDialogState();
-}
-
-class _StockDialogState extends State<_StockDialog> {
-  late final TextEditingController _quantityController;
-
-  @override
-  void initState() {
-    super.initState();
-    _quantityController = TextEditingController();
-  }
-
-  @override
-  void dispose() {
-    _quantityController.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final l10n = widget.l10n;
-    return AlertDialog(
-      title: Text(l10n.productsStockDialogTitle),
-      content: TextField(
-        controller: _quantityController,
-        keyboardType: TextInputType.number,
-        decoration: InputDecoration(labelText: l10n.productsQuantityLabel),
-      ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.of(context).pop(),
-          child: Text(l10n.addProductCancel),
-        ),
-        FilledButton(
-          onPressed: () {
-            final quantity = int.tryParse(_quantityController.text.trim()) ?? 0;
-            Navigator.of(context).pop(quantity);
-          },
-          child: Text(l10n.editProductSaveAction),
-        ),
-      ],
-    );
-  }
 }
 
 String _statusFilterLabel(AppLocalizations l10n, String key) {
