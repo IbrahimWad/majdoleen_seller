@@ -522,7 +522,7 @@ class _ProductsScreenState extends State<ProductsScreen> {
           mainAxisSize: MainAxisSize.min,
           children: [
             DropdownButtonFormField<int>(
-              value: type,
+              initialValue: type,
               decoration: InputDecoration(labelText: l10n.productsDiscountTypeLabel),
               items: [
                 DropdownMenuItem(

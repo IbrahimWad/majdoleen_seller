@@ -4,6 +4,7 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 import '../core/app_localizations.dart';
 import '../core/app_routes.dart';
 import '../core/app_theme.dart';
+import '../core/connectivity_controller.dart';
 import '../core/locale_controller.dart';
 import '../services/auth_storage.dart';
 import '../screens/add_product_screen.dart';
@@ -24,6 +25,7 @@ import '../screens/store_profile_screen.dart';
 import '../screens/subscription_plans_screen.dart';
 import '../screens/verification_screen.dart';
 import '../screens/welcome_screen.dart';
+import '../widgets/connectivity_banner.dart';
 
 class MajdoleenSellerApp extends StatefulWidget {
   const MajdoleenSellerApp({super.key});
@@ -34,6 +36,8 @@ class MajdoleenSellerApp extends StatefulWidget {
 
 class _MajdoleenSellerAppState extends State<MajdoleenSellerApp> {
   final LocaleController _localeController = LocaleController();
+  final ConnectivityController _connectivityController =
+      ConnectivityController();
   final AuthStorage _authStorage = AuthStorage();
   bool _authInitialized = false;
   bool _hasToken = false;
@@ -42,12 +46,14 @@ class _MajdoleenSellerAppState extends State<MajdoleenSellerApp> {
   void initState() {
     super.initState();
     _localeController.load();
+    _connectivityController.initialize();
     _loadAuthToken();
   }
 
   @override
   void dispose() {
     _localeController.dispose();
+    _connectivityController.dispose();
     super.dispose();
   }
 
@@ -66,58 +72,69 @@ class _MajdoleenSellerAppState extends State<MajdoleenSellerApp> {
 
     return LocaleScope(
       controller: _localeController,
-      child: AnimatedBuilder(
-        animation: _localeController,
-        builder: (context, _) {
-          final home = !_localeController.initialized || !_authInitialized
-              ? const _StartupLoader()
-              : _localeController.locale == null
-                  ? LanguageSelectionScreen(
-                      deviceLocale: deviceLocale,
-                      onSelected: _localeController.setLocale,
-                    )
-                  : _hasToken
-                      ? const HomeScreen()
-                      : const WelcomeScreen();
+      child: ConnectivityScope(
+        controller: _connectivityController,
+        child: AnimatedBuilder(
+          animation: _localeController,
+          builder: (context, _) {
+            final home = !_localeController.initialized || !_authInitialized
+                ? const _StartupLoader()
+                : _localeController.locale == null
+                    ? LanguageSelectionScreen(
+                        deviceLocale: deviceLocale,
+                        onSelected: _localeController.setLocale,
+                      )
+                    : _hasToken
+                        ? const HomeScreen()
+                        : const WelcomeScreen();
 
-          return MaterialApp(
-            title: 'Majdoleen Seller',
-            debugShowCheckedModeBanner: false,
-            theme: buildAppTheme(),
-            locale: _localeController.locale,
-            home: home,
-            localizationsDelegates: const [
-              CountryLocalizations.delegate,
-              AppLocalizations.delegate,
-              GlobalMaterialLocalizations.delegate,
-              GlobalWidgetsLocalizations.delegate,
-              GlobalCupertinoLocalizations.delegate,
-            ],
-            supportedLocales: const [
-              Locale('en'),
-              Locale('ar'),
-            ],
-      routes: {
-        AppRoutes.login: (_) => const LoginScreen(),
-        AppRoutes.register: (_) => const RegisterScreen(),
-        AppRoutes.verification: (_) => const VerificationScreen(),
-        AppRoutes.approvalPending: (_) => const ApprovalPendingScreen(),
-        AppRoutes.forgotPassword: (_) => const ForgotPasswordScreen(),
-        AppRoutes.forgotPasswordVerification: (_) =>
-            const ForgotPasswordVerificationScreen(),
-        AppRoutes.resetPassword: (_) => const ResetPasswordScreen(),
-        AppRoutes.home: (_) => const HomeScreen(),
-        AppRoutes.orders: (_) => const OrdersScreen(),
-        AppRoutes.products: (_) => const ProductsScreen(),
-        AppRoutes.payouts: (_) => const PayoutsScreen(),
-        AppRoutes.statistics: (_) => const StatisticsScreen(),
-        AppRoutes.storeProfile: (_) => const StoreProfileScreen(),
-        AppRoutes.settings: (_) => const SettingsScreen(),
-        AppRoutes.subscriptionPlans: (_) => const SubscriptionPlansScreen(),
-        AppRoutes.addProduct: (_) => const AddProductScreen(),
-      },
-          );
-        },
+            return MaterialApp(
+              title: 'Majdoleen Seller',
+              debugShowCheckedModeBanner: false,
+              theme: buildAppTheme(),
+              locale: _localeController.locale,
+              home: home,
+              builder: (context, child) {
+                return Stack(
+                  children: [
+                    child ?? const SizedBox.shrink(),
+                    const ConnectivityBanner(),
+                  ],
+                );
+              },
+              localizationsDelegates: const [
+                CountryLocalizations.delegate,
+                AppLocalizations.delegate,
+                GlobalMaterialLocalizations.delegate,
+                GlobalWidgetsLocalizations.delegate,
+                GlobalCupertinoLocalizations.delegate,
+              ],
+              supportedLocales: const [
+                Locale('en'),
+                Locale('ar'),
+              ],
+              routes: {
+                AppRoutes.login: (_) => const LoginScreen(),
+                AppRoutes.register: (_) => const RegisterScreen(),
+                AppRoutes.verification: (_) => const VerificationScreen(),
+                AppRoutes.approvalPending: (_) => const ApprovalPendingScreen(),
+                AppRoutes.forgotPassword: (_) => const ForgotPasswordScreen(),
+                AppRoutes.forgotPasswordVerification: (_) =>
+                    const ForgotPasswordVerificationScreen(),
+                AppRoutes.resetPassword: (_) => const ResetPasswordScreen(),
+                AppRoutes.home: (_) => const HomeScreen(),
+                AppRoutes.orders: (_) => const OrdersScreen(),
+                AppRoutes.products: (_) => const ProductsScreen(),
+                AppRoutes.payouts: (_) => const PayoutsScreen(),
+                AppRoutes.statistics: (_) => const StatisticsScreen(),
+                AppRoutes.storeProfile: (_) => const StoreProfileScreen(),
+                AppRoutes.settings: (_) => const SettingsScreen(),
+                AppRoutes.subscriptionPlans: (_) => const SubscriptionPlansScreen(),
+                AppRoutes.addProduct: (_) => const AddProductScreen(),
+              },
+            );
+          },
+        ),
       ),
     );
   }

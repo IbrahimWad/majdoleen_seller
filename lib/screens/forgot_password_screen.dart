@@ -7,7 +7,6 @@ import '../core/app_localizations.dart';
 import '../core/app_routes.dart';
 import '../services/seller_auth_service.dart';
 import '../widgets/app_snackbar.dart';
-import '../widgets/login_field.dart';
 import '../widgets/login_wave_clipper.dart';
 
 class ForgotPasswordScreen extends StatefulWidget {

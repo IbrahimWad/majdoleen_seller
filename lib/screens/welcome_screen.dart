@@ -4,6 +4,8 @@ import '../core/app_colors.dart';
 import '../core/app_localizations.dart';
 import '../core/app_routes.dart';
 import '../core/app_shadows.dart';
+import '../models/image_slider_model.dart';
+import '../services/image_slider_service.dart';
 
 class WelcomeScreen extends StatefulWidget {
   const WelcomeScreen({super.key});
@@ -15,6 +17,39 @@ class WelcomeScreen extends StatefulWidget {
 class _WelcomeScreenState extends State<WelcomeScreen> {
   final PageController _controller = PageController();
   int _currentIndex = 0;
+  List<ImageSlider> _sliders = [];
+  bool _isLoading = true;
+  String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchSliders();
+  }
+
+  Future<void> _fetchSliders() async {
+    try {
+      final service = ImageSliderService();
+      final sliders = await service.fetchImageSliders();
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _sliders = sliders.where((s) => s.isActive).toList();
+        print(_sliders);
+        _currentIndex = 0;
+        _isLoading = false;
+      });
+    } catch (e) {
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _error = e.toString();
+        _isLoading = false;
+      });
+    }
+  }
 
   List<_OnboardingStep> _buildSteps(AppLocalizations l10n) {
     return [
@@ -54,6 +89,40 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
     ];
   }
 
+  List<_OnboardingStep> _buildSliderSteps(
+    AppLocalizations l10n,
+    String languageCode,
+  ) {
+    const accents = [
+      Color(0xFFF1E4F4),
+      Color(0xFFEBD8F1),
+      Color(0xFFF6EAF8),
+    ];
+
+    return _sliders.asMap().entries.map((entry) {
+      final index = entry.key;
+      final slider = entry.value;
+      final accent = accents[index % accents.length];
+      return _OnboardingStep(
+        title: slider.localizedTitle(languageCode),
+        subtitle: slider.localizedDescription(languageCode),
+        imagePath: slider.imageUrl,
+        accentColor: accent,
+        highlights: const [],
+      );
+    }).toList();
+  }
+
+  List<_OnboardingStep> _currentSteps(
+    AppLocalizations l10n,
+    String languageCode,
+  ) {
+    if (_sliders.isNotEmpty) {
+      return _buildSliderSteps(l10n, languageCode);
+    }
+    return _buildSteps(l10n);
+  }
+
   @override
   void dispose() {
     _controller.dispose();
@@ -65,7 +134,9 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
   }
 
   void _next() {
-    final steps = _buildSteps(AppLocalizations.of(context));
+    final l10n = AppLocalizations.of(context);
+    final steps =
+        _currentSteps(l10n, Localizations.localeOf(context).languageCode);
     if (_currentIndex == steps.length - 1) {
       _goToLogin();
       return;
@@ -80,7 +151,36 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final l10n = AppLocalizations.of(context);
-    final steps = _buildSteps(l10n);
+    final languageCode = Localizations.localeOf(context).languageCode;
+
+    if (_isLoading) {
+      return Scaffold(
+        body: Center(
+          child: CircularProgressIndicator(),
+        ),
+      );
+    }
+
+    if (_error != null) {
+      // For now, fall back to onboarding on error
+      return _buildOnboarding(
+        context,
+        theme,
+        l10n,
+        _buildSteps(l10n),
+      );
+    }
+
+    final steps = _currentSteps(l10n, languageCode);
+    return _buildOnboarding(context, theme, l10n, steps);
+  }
+
+  Widget _buildOnboarding(
+    BuildContext context,
+    ThemeData theme,
+    AppLocalizations l10n,
+    List<_OnboardingStep> steps,
+  ) {
     final accent = steps[_currentIndex].accentColor;
     final nextLabel = _currentIndex == steps.length - 1
         ? l10n.welcomeGetStarted
@@ -285,6 +385,147 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
       ),
     );
   }
+
+  Widget _buildSliderView(BuildContext context, ThemeData theme, AppLocalizations l10n) {
+    return Scaffold(
+      body: SafeArea(
+        child: Column(
+          children: [
+            Expanded(
+              child: PageView.builder(
+                onPageChanged: (index) {
+                  setState(() {
+                    _currentIndex = index;
+                  });
+                },
+                itemCount: _sliders.length,
+                itemBuilder: (context, index) {
+                  final slider = _sliders[index];
+                  return Stack(
+                    fit: StackFit.expand,
+                    children: [
+                      Image.network(
+                        slider.imageUrl,
+                        fit: BoxFit.cover,
+                        errorBuilder: (context, error, stackTrace) {
+                          return Container(
+                            color: Colors.grey[300],
+                            child: Center(
+                              child: Icon(
+                                Icons.image_not_supported,
+                                size: 64,
+                                color: Colors.grey[600],
+                              ),
+                            ),
+                          );
+                        },
+                        loadingBuilder: (context, child, loadingProgress) {
+                          if (loadingProgress == null) return child;
+                          return Container(
+                            color: Colors.grey[300],
+                            child: Center(
+                              child: CircularProgressIndicator(
+                                value: loadingProgress.expectedTotalBytes != null
+                                    ? loadingProgress.cumulativeBytesLoaded / loadingProgress.expectedTotalBytes!
+                                    : null,
+                              ),
+                            ),
+                          );
+                        },
+                      ),
+                      Container(
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            begin: Alignment.topCenter,
+                            end: Alignment.bottomCenter,
+                            colors: [
+                              Colors.transparent,
+                              Colors.black.withOpacity(0.4),
+                            ],
+                          ),
+                        ),
+                      ),
+                      Positioned(
+                        bottom: 0,
+                        left: 0,
+                        right: 0,
+                        child: Padding(
+                          padding: const EdgeInsets.all(24),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              if (slider.title.isNotEmpty)
+                                Text(
+                                  slider.title,
+                                  style: theme.textTheme.titleLarge?.copyWith(
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                                  maxLines: 2,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              if (slider.description.isNotEmpty) ...[
+                                const SizedBox(height: 8),
+                                Text(
+                                  slider.description,
+                                  style: theme.textTheme.bodyMedium?.copyWith(
+                                    color: Colors.white70,
+                                  ),
+                                  maxLines: 2,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ],
+                            ],
+                          ),
+                        ),
+                      ),
+                    ],
+                  );
+                },
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.all(24),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Row(
+                    children: List.generate(
+                      _sliders.length,
+                      (index) {
+                        final isActive = index == _currentIndex;
+                        return AnimatedContainer(
+                          duration: const Duration(milliseconds: 250),
+                          margin: const EdgeInsets.symmetric(horizontal: 4),
+                          height: 8,
+                          width: isActive ? 24 : 8,
+                          decoration: BoxDecoration(
+                            color: isActive ? kBrandColor : kBrandColor.withOpacity(0.3),
+                            borderRadius: BorderRadius.circular(999),
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                  FilledButton(
+                    onPressed: _goToLogin,
+                    style: FilledButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 12),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                    child: Text(l10n.welcomeGetStarted),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 }
 
 class _OnboardingStep {
@@ -318,6 +559,7 @@ class _OnboardingCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final l10n = AppLocalizations.of(context);
+    final isNetworkImage = step.imagePath.startsWith('http');
     return Padding(
       padding: const EdgeInsets.fromLTRB(24, 8, 24, 16),
       child: Column(
@@ -340,6 +582,41 @@ class _OnboardingCard extends StatelessWidget {
                       color: step.accentColor.withOpacity(0.4),
                     ),
                     boxShadow: kSoftShadow,
+                  ),
+                ),
+                Positioned.fill(
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(32),
+                    child: isNetworkImage
+                        ? Image.network(
+                            step.imagePath,
+                            fit: BoxFit.cover,
+                            alignment: Alignment.center,
+                            errorBuilder: (_, __, ___) => Image.asset(
+                              'assets/branding/majdoleen_logo.png',
+                              fit: BoxFit.contain,
+                            ),
+                          )
+                        : Image.asset(
+                            step.imagePath,
+                            fit: BoxFit.cover,
+                            alignment: Alignment.center,
+                          ),
+                  ),
+                ),
+                Positioned.fill(
+                  child: Container(
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(32),
+                      gradient: LinearGradient(
+                        begin: Alignment.topCenter,
+                        end: Alignment.bottomCenter,
+                        colors: [
+                          Colors.white.withOpacity(0.55),
+                          Colors.white.withOpacity(0.05),
+                        ],
+                      ),
+                    ),
                   ),
                 ),
                 Positioned(
@@ -409,38 +686,6 @@ class _OnboardingCard extends StatelessWidget {
                     ),
                   ),
                 ),
-                Center(
-                  child: TweenAnimationBuilder<double>(
-                    tween: Tween(begin: 0.92, end: 1.0),
-                    duration: const Duration(milliseconds: 350),
-                    curve: Curves.easeOutBack,
-                    builder: (context, value, child) {
-                      return Transform.scale(
-                        scale: value,
-                        child: child,
-                      );
-                    },
-                    child: Container(
-                      width: 190,
-                      height: 190,
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        shape: BoxShape.circle,
-                        boxShadow: kSoftShadow,
-                        border: Border.all(
-                          color: step.accentColor.withOpacity(0.25),
-                        ),
-                      ),
-                      child: Padding(
-                        padding: const EdgeInsets.all(28),
-                        child: Image.asset(
-                          step.imagePath,
-                          fit: BoxFit.contain,
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
               ],
             ),
           ),
@@ -460,16 +705,18 @@ class _OnboardingCard extends StatelessWidget {
               color: kInkColor.withOpacity(0.7),
             ),
           ),
-          const SizedBox(height: 16),
-          Wrap(
-            spacing: 10,
-            runSpacing: 8,
-            alignment: WrapAlignment.center,
-            children: step.highlights
-                .map((label) => _OnboardingHighlight(label: label))
-                .toList(),
-          ),
-          const SizedBox(height: 8),
+          if (step.highlights.isNotEmpty) ...[
+            const SizedBox(height: 16),
+            Wrap(
+              spacing: 10,
+              runSpacing: 8,
+              alignment: WrapAlignment.center,
+              children: step.highlights
+                  .map((label) => _OnboardingHighlight(label: label))
+                  .toList(),
+            ),
+            const SizedBox(height: 8),
+          ],
         ],
       ),
     );

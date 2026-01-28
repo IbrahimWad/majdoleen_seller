@@ -798,7 +798,7 @@ class _AddProductScreenState extends State<AddProductScreen> {
         ),
         const SizedBox(height: 16),
         DropdownButtonFormField<int>(
-          value: _productType,
+          initialValue: _productType,
           isExpanded: true,
           decoration: InputDecoration(labelText: l10n.productsTypeLabel),
           items: [
@@ -826,7 +826,7 @@ class _AddProductScreenState extends State<AddProductScreen> {
           children: [
             Expanded(
               child: DropdownButtonFormField<SellerProductOptionItem>(
-                value: _selectedUnit,
+                initialValue: _selectedUnit,
                 isExpanded: true,
                 decoration: InputDecoration(labelText: l10n.addProductUnitLabel),
                 items: _options.units
@@ -850,7 +850,7 @@ class _AddProductScreenState extends State<AddProductScreen> {
             const SizedBox(width: 12),
             Expanded(
               child: DropdownButtonFormField<SellerProductOptionItem>(
-                value: _selectedCondition,
+                initialValue: _selectedCondition,
                 isExpanded: true,
                 decoration:
                     InputDecoration(labelText: l10n.productsConditionLabel),
@@ -1020,7 +1020,7 @@ class _AddProductScreenState extends State<AddProductScreen> {
         ),
         const SizedBox(height: 12),
         DropdownButtonFormField<int>(
-          value: _discountType,
+          initialValue: _discountType,
           isExpanded: true,
           decoration: InputDecoration(labelText: l10n.productsDiscountTypeLabel),
           items: [

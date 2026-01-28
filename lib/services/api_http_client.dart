@@ -17,14 +17,11 @@ class ApiHttpClient {
   static Dio _buildDio() {
     final dio = Dio(
       BaseOptions(
-        connectTimeout: const Duration(seconds: 20),
-        sendTimeout: const Duration(seconds: 60),
-        receiveTimeout: const Duration(seconds: 120),
+
         validateStatus: (_) => true,
         responseType: ResponseType.plain,
         headers: <String, dynamic>{
           'User-Agent': ApiConfig.userAgent,
-          'Accept': 'application/json',
         },
       ),
     );
@@ -65,7 +62,6 @@ class ApiHttpClient {
       url.toString(),
       options: Options(headers: headers),
     );
-
     return _toHttpResponse(
       res,
       method: 'GET',
@@ -172,13 +168,13 @@ class ApiHttpClient {
       isRedirect: isRedirect,
     );
   }
+
 }
 
 class _DefaultHeadersInterceptor extends Interceptor {
   @override
   void onRequest(RequestOptions options, RequestInterceptorHandler handler) {
     options.headers.putIfAbsent('User-Agent', () => ApiConfig.userAgent);
-    options.headers.putIfAbsent('Accept', () => 'application/json');
     handler.next(options);
   }
 }
@@ -192,6 +188,8 @@ class _PreparedRequest {
 
   final Object? data;
   final Options options;
+
+
   final Map<String, String>? requestHeadersForHttp;
 }
 
@@ -207,6 +205,7 @@ _PreparedRequest _prepareBodyAndHeaders({
   String? contentType;
 
   if (body is Map<String, String>) {
+
     contentType = mergedHeaders.entries
         .firstWhere(
           (e) => e.key.toLowerCase() == 'content-type',
@@ -252,11 +251,6 @@ void _applyDefaultHeaders(Map<String, String> headers) {
   if (!hasUserAgent) {
     headers['User-Agent'] = ApiConfig.userAgent;
   }
-
-  final hasAccept = headers.keys.any((k) => k.toLowerCase() == 'accept');
-  if (!hasAccept) {
-    headers['Accept'] = 'application/json';
-  }
 }
 
 Future<FormData> _multipartToFormData(http.MultipartRequest request) async {
@@ -274,7 +268,7 @@ Future<FormData> _multipartToFormData(http.MultipartRequest request) async {
           () => file.finalize(),
       file.length,
       filename: filename,
-      contentType: ct == null ? null : MediaType(ct.type, ct.subtype),
+      contentType: MediaType(ct.type, ct.subtype),
     );
 
     form.files.add(MapEntry(file.field, mpFile));
@@ -331,6 +325,7 @@ Map<String, String> _flattenHeaders(Map<String, List<String>> headers) {
 String _sanitizePrettyLog(String input) {
   var out = input;
 
+  // Authorization header
   out = out.replaceAllMapped(
     RegExp(
       r'^(\s*authorization\s*:\s*)(.+)$',
@@ -339,6 +334,7 @@ String _sanitizePrettyLog(String input) {
     ),
         (m) => '${m[1]}***',
   );
+
 
   out = out.replaceAllMapped(
     RegExp(
@@ -349,6 +345,7 @@ String _sanitizePrettyLog(String input) {
         (m) => '${m[1]}***',
   );
 
+  // JSON keys
   out = out.replaceAllMapped(
     RegExp(
       r'"(password|password_confirmation|token|access_token|refresh_token|otp|code|authorization)"\s*:\s*"[^"]*"',
@@ -357,6 +354,7 @@ String _sanitizePrettyLog(String input) {
         (m) => '"${m[1]}":"***"',
   );
 
+  // simple key=value logs
   out = out.replaceAllMapped(
     RegExp(
       r'(password|password_confirmation|token|access_token|refresh_token|otp|code|authorization)\s*[:=]\s*[^\s,]+',

@@ -1011,7 +1011,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
         ),
         const SizedBox(height: 6),
         DropdownButtonFormField<String>(
-          value: _selectedGender,
+          initialValue: _selectedGender,
           items: genderOptions.entries
               .map(
                 (entry) => DropdownMenuItem(
@@ -1071,7 +1071,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
         ),
         const SizedBox(height: 6),
         DropdownButtonFormField<String>(
-          value: _selectedCity,
+          initialValue: _selectedCity,
           items: _cities
               .map(
                 (city) => DropdownMenuItem(

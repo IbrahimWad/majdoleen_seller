@@ -4,7 +4,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:firebase_app_check/firebase_app_check.dart';
 import 'package:firebase_core/firebase_core.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 import 'app/majdoleen_seller_app.dart';
 import 'core/app_colors.dart';
@@ -37,6 +36,5 @@ void main() async {
     ),
   );
 
-  GoogleFonts.config.allowRuntimeFetching = true;
   runApp(const MajdoleenSellerApp());
 }

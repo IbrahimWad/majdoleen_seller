@@ -294,10 +294,10 @@ class _SellerDrawerState extends State<SellerDrawer> {
                               ),
                             ),
                             if (headerSubtitle != null &&
-                                headerSubtitle!.isNotEmpty) ...[
+                                headerSubtitle.isNotEmpty) ...[
                               const SizedBox(height: 4),
                               Text(
-                                headerSubtitle!,
+                                headerSubtitle,
                                 style: theme.textTheme.bodySmall?.copyWith(
                                   color: Colors.white.withOpacity(0.8),
                                 ),
