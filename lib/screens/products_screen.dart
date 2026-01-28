@@ -17,6 +17,7 @@ import '../widgets/seller_bottom_bar.dart';
 import '../widgets/seller_drawer.dart';
 import '../widgets/summary_card.dart';
 import 'add_product_screen.dart';
+import 'product_details_screen.dart';
 
 class ProductsScreen extends StatefulWidget {
   static const String routeName = AppRoutes.products;
@@ -265,24 +266,12 @@ class _ProductsScreenState extends State<ProductsScreen> {
   }
 
   Future<void> _openEditProduct(SellerProductSummary product) async {
-    final l10n = AppLocalizations.of(context);
-    debugPrint('ProductsScreen open edit product: id=${product.id}');
-    final result = await Navigator.of(context).push<ProductFormResult>(
+    debugPrint('ProductsScreen open product details: id=${product.id}');
+    Navigator.of(context).push<void>(
       MaterialPageRoute(
-        builder: (_) => AddProductScreen(productId: product.id),
+        builder: (_) => ProductDetailsScreen(product: product),
       ),
     );
-    if (!mounted) return;
-    debugPrint('ProductsScreen edit product result: ${result?.action}');
-    if (result?.action == ProductFormAction.deleted) {
-      await _loadProducts(reset: true);
-      showAppSnackBar(context, l10n.editProductDeletedMessage);
-      return;
-    }
-    if (result?.action == ProductFormAction.saved) {
-      await _loadProducts(reset: true);
-      showAppSnackBar(context, l10n.editProductUpdatedMessage);
-    }
   }
 
   Future<void> _showQuickActions(SellerProductSummary product) async {
@@ -1318,6 +1307,8 @@ class _ProductCard extends StatelessWidget {
                     ),
                   ],
                 ],
+                //edit
+                //editيس
               ),
             ],
           ),
