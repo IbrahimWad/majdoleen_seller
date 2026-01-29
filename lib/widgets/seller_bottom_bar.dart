@@ -77,7 +77,8 @@ class SellerBottomBar extends StatelessWidget {
     assert(labels.length == kMainNavItems.length);
     assert(kMainNavItems.length >= 5);
 
-    final safeSelected = selectedIndex.clamp(0, kMainNavItems.length - 1);
+    final int? safeSelected =
+        selectedIndex < 0 ? null : selectedIndex.clamp(0, kMainNavItems.length - 1);
 
     final isDark = theme.brightness == Brightness.dark;
     final surface = scheme.surface;
@@ -101,9 +102,10 @@ class SellerBottomBar extends StatelessWidget {
     const rightA = 3;
     const rightB = 4;
 
-    final homeColor = safeSelected == 2 ? primary : surface;
-    final homeIconColor = safeSelected == 2 ? Colors.white : inactive;
-    final homeLabelColor = safeSelected == 2 ? primary : inactive;
+    final isHomeActive = safeSelected == 2;
+    final homeColor = isHomeActive ? primary : surface;
+    final homeIconColor = isHomeActive ? Colors.white : inactive;
+    final homeLabelColor = isHomeActive ? primary : inactive;
 
     return SizedBox(
       height: _barHeight + extraBottom,

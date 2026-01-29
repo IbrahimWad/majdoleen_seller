@@ -12,6 +12,7 @@ import '../services/phone_verification_service.dart';
 import '../services/seller_auth_service.dart';
 import '../widgets/app_snackbar.dart';
 import '../widgets/login_wave_clipper.dart';
+import 'subscription_plans_screen.dart';
 
 class VerificationScreen extends StatefulWidget {
   static const String routeName = AppRoutes.verification;
@@ -161,7 +162,14 @@ class _VerificationScreenState extends State<VerificationScreen> {
       );
 
       if (mounted) {
-        Navigator.of(context).pushReplacementNamed(AppRoutes.approvalPending);
+        Navigator.of(context).pushReplacement(
+          MaterialPageRoute(
+            builder: (_) => const SubscriptionPlansScreen(
+              isOnboarding: true,
+              completionRoute: AppRoutes.approvalPending,
+            ),
+          ),
+        );
       }
     } catch (e) {
       if (mounted) {

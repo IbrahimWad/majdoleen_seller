@@ -15,7 +15,10 @@ class WelcomeScreen extends StatefulWidget {
 }
 
 class _WelcomeScreenState extends State<WelcomeScreen> {
-  final PageController _controller = PageController();
+  final PageController _controller = PageController(
+    initialPage: 0,
+    keepPage: false,
+  );
   int _currentIndex = 0;
   List<ImageSlider> _sliders = [];
   bool _isLoading = true;
@@ -40,6 +43,17 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
         _currentIndex = 0;
         _isLoading = false;
       });
+      for (final slider in _sliders) {
+        print('Welcome slider image URL: ${slider.imageUrl}');
+      }
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) {
+          return;
+        }
+        if (_controller.hasClients) {
+          _controller.jumpToPage(0);
+        }
+      });
     } catch (e) {
       if (!mounted) {
         return;
@@ -49,6 +63,24 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
         _isLoading = false;
       });
     }
+  }
+
+  String _ensurePublicImageUrl(String url) {
+    final trimmed = url.trim();
+    if (trimmed.isEmpty) return url;
+    if (!trimmed.startsWith('http://') && !trimmed.startsWith('https://')) {
+      return url;
+    }
+    final uri = Uri.tryParse(trimmed);
+    if (uri == null) return url;
+    final path = uri.path.startsWith('/') ? uri.path : '/${uri.path}';
+    if (path.contains('/public/')) return url;
+    if (path.startsWith('/uploaded/') ||
+        path.startsWith('/uploads/') ||
+        path.startsWith('/storage/')) {
+      return uri.replace(path: '/public$path').toString();
+    }
+    return url;
   }
 
   List<_OnboardingStep> _buildSteps(AppLocalizations l10n) {
@@ -106,7 +138,7 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
       return _OnboardingStep(
         title: slider.localizedTitle(languageCode),
         subtitle: slider.localizedDescription(languageCode),
-        imagePath: slider.imageUrl,
+        imagePath: _ensurePublicImageUrl(slider.imageUrl),
         accentColor: accent,
         highlights: const [],
       );
@@ -401,11 +433,12 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
                 itemCount: _sliders.length,
                 itemBuilder: (context, index) {
                   final slider = _sliders[index];
+                  final imageUrl = _ensurePublicImageUrl(slider.imageUrl);
                   return Stack(
                     fit: StackFit.expand,
                     children: [
                       Image.network(
-                        slider.imageUrl,
+                        imageUrl,
                         fit: BoxFit.cover,
                         errorBuilder: (context, error, stackTrace) {
                           return Container(
@@ -421,15 +454,8 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
                         },
                         loadingBuilder: (context, child, loadingProgress) {
                           if (loadingProgress == null) return child;
-                          return Container(
-                            color: Colors.grey[300],
-                            child: Center(
-                              child: CircularProgressIndicator(
-                                value: loadingProgress.expectedTotalBytes != null
-                                    ? loadingProgress.cumulativeBytesLoaded / loadingProgress.expectedTotalBytes!
-                                    : null,
-                              ),
-                            ),
+                          return _ImageLoadingOverlay(
+                            progress: loadingProgress,
                           );
                         },
                       ),
@@ -528,6 +554,115 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
   }
 }
 
+class _ImageLoadingOverlay extends StatelessWidget {
+  final ImageChunkEvent? progress;
+  final bool compact;
+
+  const _ImageLoadingOverlay({
+    this.progress,
+    this.compact = false,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final isArabic = Localizations.localeOf(context).languageCode == 'ar';
+    final title = isArabic ? 'جاري تحميل الصورة' : 'Loading image';
+    final subtitle = isArabic ? 'يرجى الانتظار' : 'Please wait';
+
+    final expected = progress?.expectedTotalBytes;
+    final loaded = progress?.cumulativeBytesLoaded ?? 0;
+    final value =
+        expected != null && expected > 0 ? loaded / expected : null;
+    final percent = value != null ? (value * 100).clamp(0, 100).round() : null;
+
+    return Container(
+      color: Colors.white,
+      child: Center(
+        child: Container(
+          padding: EdgeInsets.symmetric(
+            horizontal: compact ? 18 : 24,
+            vertical: compact ? 16 : 20,
+          ),
+          decoration: BoxDecoration(
+            color: Colors.white.withOpacity(0.95),
+            borderRadius: BorderRadius.circular(compact ? 16 : 20),
+            border: Border.all(
+              color: kBrandColor.withOpacity(0.18),
+            ),
+            boxShadow: kSoftShadow,
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: compact ? 40 : 48,
+                height: compact ? 40 : 48,
+                decoration: const BoxDecoration(
+                  shape: BoxShape.circle,
+                  gradient: LinearGradient(
+                    colors: [kBrandColor, kBrandDark],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                ),
+                child: Padding(
+                  padding: const EdgeInsets.all(10),
+                  child: CircularProgressIndicator(
+                    strokeWidth: 3,
+                    value: value,
+                    valueColor: const AlwaysStoppedAnimation<Color>(
+                      Colors.white,
+                    ),
+                    backgroundColor: Colors.white.withOpacity(0.3),
+                  ),
+                ),
+              ),
+              SizedBox(height: compact ? 10 : 12),
+              Text(
+                title,
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              if (!compact) ...[
+                const SizedBox(height: 4),
+                Text(
+                  subtitle,
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: kInkColor.withOpacity(0.6),
+                  ),
+                ),
+              ],
+              SizedBox(height: compact ? 10 : 12),
+              ClipRRect(
+                borderRadius: BorderRadius.circular(999),
+                child: LinearProgressIndicator(
+                  minHeight: 6,
+                  value: value,
+                  backgroundColor: kBrandColor.withOpacity(0.12),
+                  valueColor:
+                      const AlwaysStoppedAnimation<Color>(kBrandColor),
+                ),
+              ),
+              if (percent != null) ...[
+                const SizedBox(height: 6),
+                Text(
+                  '$percent%',
+                  style: theme.textTheme.labelSmall?.copyWith(
+                    color: kBrandColor,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class _OnboardingStep {
   final String title;
   final String subtitle;
@@ -592,6 +727,13 @@ class _OnboardingCard extends StatelessWidget {
                             step.imagePath,
                             fit: BoxFit.cover,
                             alignment: Alignment.center,
+                            loadingBuilder: (context, child, loadingProgress) {
+                              if (loadingProgress == null) return child;
+                              return _ImageLoadingOverlay(
+                                progress: loadingProgress,
+                                compact: true,
+                              );
+                            },
                             errorBuilder: (_, __, ___) => Image.asset(
                               'assets/branding/majdoleen_logo.png',
                               fit: BoxFit.contain,

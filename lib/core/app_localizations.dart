@@ -28,6 +28,8 @@ class AppLocalizations {
       'loginAction': 'Login',
       'loginMissingFields': 'Please enter your phone and password.',
       'loginFailed': 'Login failed.',
+      'networkErrorMessage':
+          'No internet connection. Please check your connection and try again.',
       'rememberMe': 'Remember me',
       'forgotPassword': 'Forgot password?',
       'forgotPasswordTitle': 'Reset your password',
@@ -272,7 +274,7 @@ class AppLocalizations {
       'productsCategoryAccessories': 'Accessories',
       'productsFilterAll': 'All',
       'productsFilterActive': 'Active',
-      'productsFilterInactive': 'Inactive',
+      'productsFilterInactive': 'Drafts',
       'productsStockFilterAll': 'All',
       'productsStockFilterLow': 'Low stock',
       'productsStockFilterOut': 'Out of stock',
@@ -281,6 +283,11 @@ class AppLocalizations {
       'productsSummaryLowStock': 'Low stock',
       'productsListTitle': 'Products ({count})',
       'productsSortNewest': 'Sort: Newest',
+      'productsFiltersTitle': 'Filters',
+      'productsFiltersShow': 'Show filters',
+      'productsFiltersHide': 'Hide filters',
+      'productsFilterTitleStatus': 'Status',
+      'productsFilterTitleStock': 'Stock',
       'productsStatusActive': 'Active',
       'productsStatusInactive': 'Inactive',
       'productsStatusDraft': 'Draft',
@@ -289,7 +296,7 @@ class AppLocalizations {
       'productsStockLow': 'Low stock • {count}',
       'productsStockAvailable': 'Stock • {count}',
       'productsQuickActions': 'Quick actions',
-      'productsActionToggleStatus': 'Toggle status',
+      'productsActionToggleStatus': 'Publish / Draft',
       'productsActionUpdateDiscount': 'Update discount',
       'productsActionUpdatePrice': 'Update price',
       'productsActionUpdateStock': 'Update stock',
@@ -330,6 +337,7 @@ class AppLocalizations {
       'productsFormNameRequired': 'Enter a product name.',
       'productsFormPermalinkRequired': 'Enter a permalink.',
       'productsFormVariationRequired': 'Add at least one variation.',
+      'productsFormCategoryRequired': 'Select a category.',
       'productsSaveFailed': 'Product save failed.',
       'productsDeleteFailed': 'Product delete failed.',
       'productsImageTooLarge': 'Image must be smaller than 4MB.',
@@ -338,10 +346,29 @@ class AppLocalizations {
       'productsEmptyMessage': 'No products yet.',
       'productsProductId': 'ID',
       'productsUnnamed': 'Unnamed product',
+      'productDetailsOverviewTitle': 'Overview',
+      'productDetailsMetricsTitle': 'Metrics',
+      'productDetailsInfoTitle': 'Product info',
+      'productDetailsFeaturesTitle': 'Highlights',
+      'productDetailsTypeLabel': 'Type',
+      'productDetailsTypeVariable': 'Variable',
+      'productDetailsTypeSimple': 'Simple',
+      'productDetailsStatusLabel': 'Status',
+      'productDetailsApprovalLabel': 'Approval',
+      'productDetailsApprovalApproved': 'Approved',
+      'productDetailsApprovalPending': 'Pending approval',
+      'productDetailsCreatedAt': 'Created',
+      'productDetailsUpdatedAt': 'Updated',
+      'productDetailsReadMore': 'Read more',
+      'productDetailsShowLess': 'Show less',
+      'productDetailsFeatureFeatured': 'Featured',
+      'productDetailsFeatureApproved': 'Approved',
+      'productDetailsFeatureVariable': 'Variable product',
+      'productDetailsFeatureSimple': 'Simple product',
       'addProductTitle': 'Add product',
       'addProductSaveDraft': 'Save draft',
       'addProductDraftSavedMessage': 'Draft saved.',
-      'addProductSubmittedMessage': 'Product submitted for review.',
+      'addProductSubmittedMessage': 'Your product is under review. Confirmation typically takes up to 1 hour.',
       'addProductStepIndicator': 'Step {current} of {total}',
       'addProductStepBasics': 'Basics',
       'addProductStepPricing': 'Pricing',
@@ -358,6 +385,13 @@ class AppLocalizations {
       'addProductCategoryPropertiesTitle': 'Category properties',
       'addProductCategoryPropertiesSubtitle':
           'Select the attributes that match this category.',
+      'addProductVariationOptionsTitle': 'Variation options',
+      'addProductVariationOptionsSubtitle':
+          'Select attributes and values to generate variants.',
+      'addProductColorVariantsLabel': 'Use color variants',
+      'addProductSelectColorsAction': 'Select colors',
+      'addProductSelectAttributesLabel': 'Add attribute',
+      'addProductSelectValuesAction': 'Select values',
       'addProductDescriptionLabel': 'Description',
       'addProductTagsTitle': 'Tags',
       'addProductTagBestseller': 'Bestseller',
@@ -396,6 +430,11 @@ class AppLocalizations {
       'addProductImageLabel': 'Image {index}',
       'addProductImagePickerMessage': 'Image picker is not connected yet.',
       'addProductImagesAdd': 'Add images',
+      'addProductColorImagesTitle': 'Color variation images',
+      'addProductColorImagesSubtitle': 'Upload images for each selected color.',
+      'addProductColorImagesAdd': 'Add images',
+      'addProductColorImagesEmpty': 'Select colors to add images.',
+      'addProductColorImagesNone': 'No images yet.',
       'addProductDeliveryTitle': 'Delivery options',
       'addProductDeliveryCourier': 'Courier',
       'addProductDeliveryPickup': 'Pickup',
@@ -474,6 +513,10 @@ class AppLocalizations {
       'drawerComingSoon': '{label} is coming soon.',
       'storeProfileTitle': 'Store profile',
       'storeProfileSubtitle': 'Update how your shop appears to buyers.',
+      'storeProfileTabStore': 'Store',
+      'storeProfileTabContact': 'Contact',
+      'storeProfileTabSeo': 'SEO',
+      'storeProfileTabOps': 'Ops',
       'storeProfileLogoTitle': 'Store logo',
       'storeProfileLogoHint': 'Recommended 512x512 PNG',
       'storeProfileLogoUpdateAction': 'Update logo',
@@ -734,6 +777,8 @@ class AppLocalizations {
       'loginAction': 'تسجيل الدخول',
       'loginMissingFields': 'يرجى إدخال رقم الهاتف وكلمة المرور.',
       'loginFailed': 'فشل تسجيل الدخول.',
+      'networkErrorMessage':
+          'لا يوجد اتصال بالإنترنت. يرجى التحقق من الاتصال والمحاولة مرة أخرى.',
       'rememberMe': 'تذكرني',
       'forgotPassword': 'نسيت كلمة المرور؟',
       'forgotPasswordTitle': 'استعادة كلمة المرور',
@@ -974,7 +1019,7 @@ class AppLocalizations {
       'productsCategoryAccessories': 'إكسسوارات',
       'productsFilterAll': 'الكل',
       'productsFilterActive': 'نشط',
-      'productsFilterInactive': 'غير نشط',
+      'productsFilterInactive': 'مسودات',
       'productsStockFilterAll': 'الكل',
       'productsStockFilterLow': 'مخزون منخفض',
       'productsStockFilterOut': 'نفاد المخزون',
@@ -983,6 +1028,11 @@ class AppLocalizations {
       'productsSummaryLowStock': 'مخزون منخفض',
       'productsListTitle': 'المنتجات ({count})',
       'productsSortNewest': 'الترتيب: الأحدث',
+      'productsFiltersTitle': 'الفلاتر',
+      'productsFiltersShow': 'إظهار الفلاتر',
+      'productsFiltersHide': 'إخفاء الفلاتر',
+      'productsFilterTitleStatus': 'الحالة',
+      'productsFilterTitleStock': 'المخزون',
       'productsStatusActive': 'نشط',
       'productsStatusInactive': 'غير نشط',
       'productsStatusDraft': 'مسودة',
@@ -991,7 +1041,7 @@ class AppLocalizations {
       'productsStockLow': 'مخزون منخفض • {count}',
       'productsStockAvailable': 'المخزون • {count}',
       'productsQuickActions': 'إجراءات سريعة',
-      'productsActionToggleStatus': 'تبديل الحالة',
+      'productsActionToggleStatus': 'نشر / مسودة',
       'productsActionUpdateDiscount': 'تحديث الخصم',
       'productsActionUpdatePrice': 'تحديث السعر',
       'productsActionUpdateStock': 'تحديث المخزون',
@@ -1032,6 +1082,7 @@ class AppLocalizations {
       'productsFormNameRequired': 'أدخل اسم المنتج.',
       'productsFormPermalinkRequired': 'أدخل الرابط المختصر.',
       'productsFormVariationRequired': 'أضف متغيرًا واحدًا على الأقل.',
+      'productsFormCategoryRequired': 'اختر الفئة.',
       'productsSaveFailed': 'فشل حفظ المنتج.',
       'productsDeleteFailed': 'فشل حذف المنتج.',
       'productsImageTooLarge': 'يجب أن يكون حجم الصورة أقل من ٤ ميجابايت.',
@@ -1040,10 +1091,29 @@ class AppLocalizations {
       'productsEmptyMessage': 'لا توجد منتجات بعد.',
       'productsProductId': 'المعرف',
       'productsUnnamed': 'منتج بدون اسم',
+      'productDetailsOverviewTitle': 'نظرة عامة',
+      'productDetailsMetricsTitle': 'المقاييس',
+      'productDetailsInfoTitle': 'معلومات المنتج',
+      'productDetailsFeaturesTitle': 'المميزات',
+      'productDetailsTypeLabel': 'النوع',
+      'productDetailsTypeVariable': 'متغير',
+      'productDetailsTypeSimple': 'بسيط',
+      'productDetailsStatusLabel': 'الحالة',
+      'productDetailsApprovalLabel': 'الموافقة',
+      'productDetailsApprovalApproved': 'معتمد',
+      'productDetailsApprovalPending': 'قيد المراجعة',
+      'productDetailsCreatedAt': 'تاريخ الإنشاء',
+      'productDetailsUpdatedAt': 'آخر تحديث',
+      'productDetailsReadMore': 'عرض المزيد',
+      'productDetailsShowLess': 'عرض أقل',
+      'productDetailsFeatureFeatured': 'مميز',
+      'productDetailsFeatureApproved': 'معتمد',
+      'productDetailsFeatureVariable': 'منتج متغير',
+      'productDetailsFeatureSimple': 'منتج بسيط',
       'addProductTitle': 'إضافة منتج',
       'addProductSaveDraft': 'حفظ المسودة',
       'addProductDraftSavedMessage': 'تم حفظ المسودة.',
-      'addProductSubmittedMessage': 'تم إرسال المنتج للمراجعة.',
+      'addProductSubmittedMessage': 'منتجك قيد المراجعة. عادةً ما يتم التأكيد خلال ساعة واحدة.',
       'addProductStepIndicator': 'الخطوة {current} من {total}',
       'addProductStepBasics': 'الأساسيات',
       'addProductStepPricing': 'التسعير',
@@ -1059,6 +1129,13 @@ class AppLocalizations {
       'addProductCategoryLabel': 'الفئة',
       'addProductCategoryPropertiesTitle': 'خصائص الفئة',
       'addProductCategoryPropertiesSubtitle': 'اختر السمات المناسبة لهذه الفئة.',
+      'addProductVariationOptionsTitle': 'خيارات المتغيرات',
+      'addProductVariationOptionsSubtitle':
+          'اختر السمات والقيم لتوليد المتغيرات.',
+      'addProductColorVariantsLabel': 'استخدام متغيرات اللون',
+      'addProductSelectColorsAction': 'اختر الألوان',
+      'addProductSelectAttributesLabel': 'إضافة سمة',
+      'addProductSelectValuesAction': 'اختر القيم',
       'addProductDescriptionLabel': 'الوصف',
       'addProductTagsTitle': 'الوسوم',
       'addProductTagBestseller': 'الأكثر مبيعًا',
@@ -1097,6 +1174,11 @@ class AppLocalizations {
       'addProductImageLabel': 'صورة {index}',
       'addProductImagePickerMessage': 'محدد الصور غير متصل بعد.',
       'addProductImagesAdd': 'إضافة صور',
+      'addProductColorImagesTitle': 'صور ألوان المنتج',
+      'addProductColorImagesSubtitle': 'ارفع صورًا لكل لون محدد.',
+      'addProductColorImagesAdd': 'إضافة صور',
+      'addProductColorImagesEmpty': 'اختر الألوان لإضافة الصور.',
+      'addProductColorImagesNone': 'لا توجد صور بعد.',
       'addProductDeliveryTitle': 'خيارات التوصيل',
       'addProductDeliveryCourier': 'توصيل',
       'addProductDeliveryPickup': 'استلام',
@@ -1175,6 +1257,10 @@ class AppLocalizations {
       'drawerComingSoon': 'سيتم توفير {label} قريبًا.',
       'storeProfileTitle': 'ملف المتجر',
       'storeProfileSubtitle': 'حدّث طريقة ظهور متجرك للعملاء.',
+      'storeProfileTabStore': 'المتجر',
+      'storeProfileTabContact': 'التواصل',
+      'storeProfileTabSeo': 'السيو',
+      'storeProfileTabOps': 'العمليات',
       'storeProfileLogoTitle': 'شعار المتجر',
       'storeProfileLogoHint': 'يوصى بـ 512x512 PNG',
       'storeProfileLogoUpdateAction': 'تحديث الشعار',
@@ -1442,6 +1528,7 @@ class AppLocalizations {
   String get loginAction => _value('loginAction');
   String get loginMissingFields => _value('loginMissingFields');
   String get loginFailed => _value('loginFailed');
+  String get networkErrorMessage => _value('networkErrorMessage');
   String get rememberMe => _value('rememberMe');
   String get forgotPassword => _value('forgotPassword');
   String get forgotPasswordTitle => _value('forgotPasswordTitle');
@@ -1703,6 +1790,11 @@ class AppLocalizations {
   String get productsSummaryActive => _value('productsSummaryActive');
   String get productsSummaryLowStock => _value('productsSummaryLowStock');
   String get productsSortNewest => _value('productsSortNewest');
+  String get productsFiltersTitle => _value('productsFiltersTitle');
+  String get productsFiltersShow => _value('productsFiltersShow');
+  String get productsFiltersHide => _value('productsFiltersHide');
+  String get productsFilterTitleStatus => _value('productsFilterTitleStatus');
+  String get productsFilterTitleStock => _value('productsFilterTitleStock');
   String get productsStatusActive => _value('productsStatusActive');
   String get productsStatusInactive => _value('productsStatusInactive');
   String get productsStatusDraft => _value('productsStatusDraft');
@@ -1753,6 +1845,8 @@ class AppLocalizations {
       _value('productsFormPermalinkRequired');
   String get productsFormVariationRequired =>
       _value('productsFormVariationRequired');
+  String get productsFormCategoryRequired =>
+      _value('productsFormCategoryRequired');
   String get productsSaveFailed => _value('productsSaveFailed');
   String get productsDeleteFailed => _value('productsDeleteFailed');
   String get productsImageTooLarge => _value('productsImageTooLarge');
@@ -1761,6 +1855,32 @@ class AppLocalizations {
   String get productsEmptyMessage => _value('productsEmptyMessage');
   String get productsProductId => _value('productsProductId');
   String get productsUnnamed => _value('productsUnnamed');
+  String get productDetailsOverviewTitle =>
+      _value('productDetailsOverviewTitle');
+  String get productDetailsMetricsTitle => _value('productDetailsMetricsTitle');
+  String get productDetailsInfoTitle => _value('productDetailsInfoTitle');
+  String get productDetailsFeaturesTitle => _value('productDetailsFeaturesTitle');
+  String get productDetailsTypeLabel => _value('productDetailsTypeLabel');
+  String get productDetailsTypeVariable => _value('productDetailsTypeVariable');
+  String get productDetailsTypeSimple => _value('productDetailsTypeSimple');
+  String get productDetailsStatusLabel => _value('productDetailsStatusLabel');
+  String get productDetailsApprovalLabel => _value('productDetailsApprovalLabel');
+  String get productDetailsApprovalApproved =>
+      _value('productDetailsApprovalApproved');
+  String get productDetailsApprovalPending =>
+      _value('productDetailsApprovalPending');
+  String get productDetailsCreatedAt => _value('productDetailsCreatedAt');
+  String get productDetailsUpdatedAt => _value('productDetailsUpdatedAt');
+  String get productDetailsReadMore => _value('productDetailsReadMore');
+  String get productDetailsShowLess => _value('productDetailsShowLess');
+  String get productDetailsFeatureFeatured =>
+      _value('productDetailsFeatureFeatured');
+  String get productDetailsFeatureApproved =>
+      _value('productDetailsFeatureApproved');
+  String get productDetailsFeatureVariable =>
+      _value('productDetailsFeatureVariable');
+  String get productDetailsFeatureSimple =>
+      _value('productDetailsFeatureSimple');
   String get addProductTitle => _value('addProductTitle');
   String get addProductSaveDraft => _value('addProductSaveDraft');
   String get addProductDraftSavedMessage => _value('addProductDraftSavedMessage');
@@ -1781,6 +1901,18 @@ class AppLocalizations {
       _value('addProductCategoryPropertiesTitle');
   String get addProductCategoryPropertiesSubtitle =>
       _value('addProductCategoryPropertiesSubtitle');
+  String get addProductVariationOptionsTitle =>
+      _value('addProductVariationOptionsTitle');
+  String get addProductVariationOptionsSubtitle =>
+      _value('addProductVariationOptionsSubtitle');
+  String get addProductColorVariantsLabel =>
+      _value('addProductColorVariantsLabel');
+  String get addProductSelectColorsAction =>
+      _value('addProductSelectColorsAction');
+  String get addProductSelectAttributesLabel =>
+      _value('addProductSelectAttributesLabel');
+  String get addProductSelectValuesAction =>
+      _value('addProductSelectValuesAction');
   String get addProductDescriptionLabel => _value('addProductDescriptionLabel');
   String get addProductTagsTitle => _value('addProductTagsTitle');
   String get addProductTagBestseller => _value('addProductTagBestseller');
@@ -1821,6 +1953,12 @@ class AppLocalizations {
   String get addProductImagePickerMessage =>
       _value('addProductImagePickerMessage');
   String get addProductImagesAdd => _value('addProductImagesAdd');
+  String get addProductColorImagesTitle => _value('addProductColorImagesTitle');
+  String get addProductColorImagesSubtitle =>
+      _value('addProductColorImagesSubtitle');
+  String get addProductColorImagesAdd => _value('addProductColorImagesAdd');
+  String get addProductColorImagesEmpty => _value('addProductColorImagesEmpty');
+  String get addProductColorImagesNone => _value('addProductColorImagesNone');
   String get addProductDeliveryTitle => _value('addProductDeliveryTitle');
   String get addProductDeliveryCourier => _value('addProductDeliveryCourier');
   String get addProductDeliveryPickup => _value('addProductDeliveryPickup');
@@ -1896,6 +2034,10 @@ class AppLocalizations {
   String get drawerCancel => _value('drawerCancel');
   String get storeProfileTitle => _value('storeProfileTitle');
   String get storeProfileSubtitle => _value('storeProfileSubtitle');
+  String get storeProfileTabStore => _value('storeProfileTabStore');
+  String get storeProfileTabContact => _value('storeProfileTabContact');
+  String get storeProfileTabSeo => _value('storeProfileTabSeo');
+  String get storeProfileTabOps => _value('storeProfileTabOps');
   String get storeProfileLogoTitle => _value('storeProfileLogoTitle');
   String get storeProfileLogoHint => _value('storeProfileLogoHint');
   String get storeProfileLogoUpdateAction => _value('storeProfileLogoUpdateAction');

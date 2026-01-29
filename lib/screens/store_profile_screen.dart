@@ -15,8 +15,10 @@ import '../core/app_navigation.dart';
 import '../core/app_routes.dart';
 import '../core/app_shadows.dart';
 import '../config/api_config.dart';
+import '../models/subscription_plan.dart';
 import '../services/auth_storage.dart';
 import '../services/seller_auth_service.dart';
+import '../services/subscription_storage.dart';
 import '../widgets/app_snackbar.dart';
 import '../widgets/form_section_header.dart';
 import '../widgets/labeled_switch_row.dart';
@@ -47,6 +49,7 @@ class _StoreProfileScreenState extends State<StoreProfileScreen> {
 
   final SellerAuthService _sellerAuthService = SellerAuthService();
   final AuthStorage _authStorage = AuthStorage();
+  final SubscriptionStorage _subscriptionStorage = SubscriptionStorage();
   final ImagePicker _imagePicker = ImagePicker();
 
   bool _storeOpen = true;
@@ -57,6 +60,8 @@ class _StoreProfileScreenState extends State<StoreProfileScreen> {
   bool _isUpdatingLogo = false;
   bool _isUpdatingBanner = false;
   bool _isUpdatingMetaImage = false;
+
+  String _currentPlanId = 'free';
 
   double? _selectedLat;
   double? _selectedLng;
@@ -143,7 +148,10 @@ class _StoreProfileScreenState extends State<StoreProfileScreen> {
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) => _loadProfile());
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _loadProfile();
+      _loadSubscriptionPlan();
+    });
   }
 
   double? _toDouble(dynamic v) {
@@ -187,6 +195,23 @@ class _StoreProfileScreenState extends State<StoreProfileScreen> {
     });
 
     await _movePreviewCamera(animate: true);
+  }
+
+  Future<void> _loadSubscriptionPlan() async {
+    final stored = await _subscriptionStorage.readPlanId();
+    if (!mounted) return;
+    final normalized = stored?.trim();
+    if (normalized != null && normalized.isNotEmpty) {
+      setState(() {
+        _currentPlanId = normalized;
+      });
+    }
+  }
+
+  Future<void> _openSubscriptionPlans() async {
+    await Navigator.of(context).pushNamed(AppRoutes.subscriptionPlans);
+    if (!mounted) return;
+    await _loadSubscriptionPlan();
   }
 
   CameraPosition _maplibreCameraPositionForPreview() {
@@ -832,19 +857,537 @@ class _StoreProfileScreenState extends State<StoreProfileScreen> {
     );
   }
 
+  double _tabBottomPadding(BuildContext context) {
+    return SellerBottomBar.bodyBottomPadding(context) + 16;
+  }
+
+  Widget _buildTabScroll(BuildContext context, List<Widget> children) {
+    return SingleChildScrollView(
+      padding: EdgeInsets.fromLTRB(24, 8, 24, _tabBottomPadding(context)),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: children,
+      ),
+    );
+  }
+
+  Widget _buildSectionTitle(ThemeData theme, String title) {
+    return Text(
+      title,
+      style: theme.textTheme.titleMedium?.copyWith(
+        fontWeight: FontWeight.w700,
+      ),
+    );
+  }
+
+  Widget _buildCard({required Widget child}) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: kCardColor,
+        borderRadius: BorderRadius.circular(18),
+        boxShadow: kSoftShadow,
+      ),
+      child: child,
+    );
+  }
+
+  Widget _buildBrandCard(ThemeData theme, AppLocalizations l10n) {
+    return _buildCard(
+      child: Column(
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 56,
+                height: 56,
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(
+                    color: kBrandColor.withOpacity(0.12),
+                  ),
+                ),
+                child: Padding(
+                  padding: const EdgeInsets.all(8),
+                  child: _logoUrl != null && _logoUrl!.isNotEmpty
+                      ? Image.network(
+                          _logoUrl!,
+                          fit: BoxFit.contain,
+                          errorBuilder: (context, error, stackTrace) {
+                            return Image.asset(
+                              'assets/branding/majdoleen_logo.png',
+                              fit: BoxFit.contain,
+                            );
+                          },
+                        )
+                      : Image.asset(
+                          'assets/branding/majdoleen_logo.png',
+                          fit: BoxFit.contain,
+                        ),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      l10n.storeProfileLogoTitle,
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      l10n.storeProfileLogoHint,
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: kInkColor.withOpacity(0.6),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              OutlinedButton(
+                onPressed: _isUpdatingLogo ? null : () => _pickAndUpdateImage('logo'),
+                child: _isUpdatingLogo
+                    ? const SizedBox(
+                        width: 18,
+                        height: 18,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : Text(l10n.storeProfileLogoUpdateAction),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          Container(
+            height: 120,
+            decoration: BoxDecoration(
+              color: kSurfaceColor,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(
+                color: kBrandColor.withOpacity(0.1),
+              ),
+            ),
+            child: _bannerUrl != null && _bannerUrl!.isNotEmpty
+                ? ClipRRect(
+                    borderRadius: BorderRadius.circular(16),
+                    child: Image.network(
+                      _bannerUrl!,
+                      fit: BoxFit.cover,
+                      width: double.infinity,
+                      errorBuilder: (context, error, stackTrace) {
+                        return Center(
+                          child: Text(
+                            l10n.storeProfileBannerLabel,
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              color: kInkColor.withOpacity(0.6),
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                  )
+                : Center(
+                    child: Text(
+                      l10n.storeProfileBannerLabel,
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: kInkColor.withOpacity(0.6),
+                      ),
+                    ),
+                  ),
+          ),
+          const SizedBox(height: 12),
+          Align(
+            alignment: AlignmentDirectional.centerStart,
+            child: OutlinedButton(
+              onPressed: _isUpdatingBanner ? null : () => _pickAndUpdateImage('banner'),
+              child: _isUpdatingBanner
+                  ? const SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : Text(l10n.storeProfileBannerUpdateAction),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDetailsCard(AppLocalizations l10n) {
+    return _buildCard(
+      child: Column(
+        children: [
+          TextFormField(
+            controller: _nameController,
+            decoration: InputDecoration(
+              labelText: l10n.storeProfileNameLabel,
+              hintText: l10n.storeProfileNameHint,
+            ),
+          ),
+          const SizedBox(height: 12),
+          TextFormField(
+            controller: _slugController,
+            decoration: InputDecoration(
+              labelText: l10n.storeProfileSlugLabel,
+              hintText: l10n.storeProfileSlugHint,
+            ),
+          ),
+          const SizedBox(height: 12),
+          DropdownButtonFormField<String>(
+            initialValue: _selectedCategory,
+            items: _categoryKeys
+                .map(
+                  (categoryKey) => DropdownMenuItem(
+                    value: categoryKey,
+                    child: Text(_categoryLabel(l10n, categoryKey)),
+                  ),
+                )
+                .toList(),
+            onChanged: (value) {
+              if (value == null) return;
+              setState(() {
+                _selectedCategory = value;
+              });
+            },
+            decoration: InputDecoration(
+              labelText: l10n.storeProfileCategoryLabel,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildContactCard(ThemeData theme, AppLocalizations l10n) {
+    return _buildCard(
+      child: Column(
+        children: [
+          TextFormField(
+            controller: _sellerPhoneController,
+            decoration: InputDecoration(
+              labelText: l10n.storeProfileSellerPhoneLabel,
+              hintText: l10n.storeProfileSellerPhoneHint,
+            ),
+          ),
+          const SizedBox(height: 12),
+          TextFormField(
+            controller: _shopPhoneController,
+            decoration: InputDecoration(
+              labelText: l10n.storeProfileShopPhoneLabel,
+              hintText: l10n.storeProfileShopPhoneHint,
+            ),
+          ),
+          const SizedBox(height: 12),
+          TextFormField(
+            controller: _addressController,
+            maxLines: 2,
+            decoration: InputDecoration(
+              labelText: l10n.storeProfileAddressLabel,
+              hintText: l10n.storeProfileAddressHint,
+            ),
+          ),
+          _buildLocationPicker(theme),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSeoCard(ThemeData theme, AppLocalizations l10n) {
+    return _buildCard(
+      child: Column(
+        children: [
+          TextFormField(
+            controller: _metaTitleController,
+            decoration: InputDecoration(
+              labelText: l10n.storeProfileMetaTitleLabel,
+              hintText: l10n.storeProfileMetaTitleHint,
+            ),
+          ),
+          const SizedBox(height: 12),
+          TextFormField(
+            controller: _metaDescriptionController,
+            maxLines: 3,
+            decoration: InputDecoration(
+              labelText: l10n.storeProfileMetaDescriptionLabel,
+              hintText: l10n.storeProfileMetaDescriptionHint,
+            ),
+          ),
+          const SizedBox(height: 16),
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  l10n.storeProfileMetaImageLabel,
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+              OutlinedButton(
+                onPressed: _isUpdatingMetaImage ? null : _pickAndUpdateSeoImage,
+                child: _isUpdatingMetaImage
+                    ? const SizedBox(
+                        width: 18,
+                        height: 18,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : Text(l10n.storeProfileMetaImageUpdateAction),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Container(
+            height: 120,
+            decoration: BoxDecoration(
+              color: kSurfaceColor,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(
+                color: kBrandColor.withOpacity(0.1),
+              ),
+            ),
+            child: _metaImageUrl != null && _metaImageUrl!.isNotEmpty
+                ? ClipRRect(
+                    borderRadius: BorderRadius.circular(16),
+                    child: Image.network(
+                      _metaImageUrl!,
+                      fit: BoxFit.cover,
+                      width: double.infinity,
+                      errorBuilder: (context, error, stackTrace) {
+                        return Center(
+                          child: Text(
+                            l10n.storeProfileMetaImageLabel,
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              color: kInkColor.withOpacity(0.6),
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                  )
+                : Center(
+                    child: Text(
+                      l10n.storeProfileMetaImageLabel,
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: kInkColor.withOpacity(0.6),
+                      ),
+                    ),
+                  ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildStatusCard(AppLocalizations l10n) {
+    return _buildCard(
+      child: Column(
+        children: [
+          LabeledSwitchRow(
+            title: l10n.storeProfileStatusOpenTitle,
+            subtitle: l10n.storeProfileStatusOpenSubtitle,
+            value: _storeOpen,
+            onChanged: (value) {
+              setState(() {
+                _storeOpen = value;
+              });
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildFulfillmentCard(AppLocalizations l10n) {
+    return _buildCard(
+      child: Column(
+        children: [
+          LabeledSwitchRow(
+            title: l10n.storeProfilePickupTitle,
+            subtitle: l10n.storeProfilePickupSubtitle,
+            value: _pickupEnabled,
+            onChanged: (value) {
+              setState(() {
+                _pickupEnabled = value;
+              });
+            },
+          ),
+          const SizedBox(height: 12),
+          LabeledSwitchRow(
+            title: l10n.storeProfileDeliveryTitle,
+            subtitle: l10n.storeProfileDeliverySubtitle,
+            value: _deliveryEnabled,
+            onChanged: (value) {
+              setState(() {
+                _deliveryEnabled = value;
+              });
+            },
+          ),
+          const SizedBox(height: 12),
+          DropdownButtonFormField<String>(
+            initialValue: _selectedPrepTime,
+            items: _prepTimeKeys
+                .map(
+                  (timeKey) => DropdownMenuItem(
+                    value: timeKey,
+                    child: Text(_prepTimeLabel(l10n, timeKey)),
+                  ),
+                )
+                .toList(),
+            onChanged: (value) {
+              if (value == null) return;
+              setState(() {
+                _selectedPrepTime = value;
+              });
+            },
+            decoration: InputDecoration(
+              labelText: l10n.storeProfilePrepTimeLabel,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildBusinessHoursCard(List<_StoreHour> hours) {
+    return _buildCard(
+      child: Column(
+        children: hours
+            .map(
+              (hour) => Padding(
+                padding: const EdgeInsets.only(bottom: 12),
+                child: _StoreHourRow(hour),
+              ),
+            )
+            .toList(),
+      ),
+    );
+  }
+
+  Widget _buildActionRow(AppLocalizations l10n) {
+    return Row(
+      children: [
+        Expanded(
+          child: OutlinedButton(
+            onPressed: _previewStore,
+            style: OutlinedButton.styleFrom(
+              padding: const EdgeInsets.symmetric(vertical: 16),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(14),
+              ),
+              side: BorderSide(
+                color: kBrandColor.withOpacity(0.3),
+              ),
+            ),
+            child: Text(l10n.storeProfilePreviewAction),
+          ),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: FilledButton(
+            onPressed: _isSaving ? null : _saveProfile,
+            child: Text(l10n.storeProfileSaveAction),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildTabBar(ThemeData theme, AppLocalizations l10n) {
+    final tabs = [
+      _ProfileTabSpec(l10n.storeProfileTabStore, Icons.storefront_outlined),
+      _ProfileTabSpec(l10n.storeProfileTabContact, Icons.map_outlined),
+      _ProfileTabSpec(l10n.storeProfileTabSeo, Icons.search_rounded),
+      _ProfileTabSpec(l10n.storeProfileTabOps, Icons.tune_rounded),
+    ];
+
+    final labelStyle = theme.textTheme.labelMedium?.copyWith(
+      fontWeight: FontWeight.w700,
+    );
+    final unselectedLabelStyle = theme.textTheme.labelMedium?.copyWith(
+      fontWeight: FontWeight.w600,
+    );
+    final surface = Color.lerp(kSurfaceColor, Colors.white, 0.6)!;
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+      child: Container(
+        padding: const EdgeInsets.all(4),
+        decoration: BoxDecoration(
+          color: surface,
+          borderRadius: BorderRadius.circular(999),
+          border: Border.all(
+            color: kBrandColor.withOpacity(0.12),
+          ),
+          boxShadow: kSoftShadow,
+        ),
+        child: TabBar(
+          isScrollable: true,
+          indicator: BoxDecoration(
+            gradient: const LinearGradient(
+              colors: [kBrandColor, kBrandDark],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+            borderRadius: BorderRadius.circular(999),
+            boxShadow: [
+              BoxShadow(
+                color: kBrandColor.withOpacity(0.25),
+                blurRadius: 12,
+                offset: const Offset(0, 4),
+              ),
+            ],
+          ),
+          indicatorSize: TabBarIndicatorSize.tab,
+          indicatorPadding: const EdgeInsets.symmetric(
+            horizontal: 4,
+            vertical: 4,
+          ),
+          labelColor: Colors.white,
+          unselectedLabelColor: kInkColor.withOpacity(0.65),
+          labelStyle: labelStyle,
+          unselectedLabelStyle: unselectedLabelStyle,
+          labelPadding: const EdgeInsets.symmetric(horizontal: 8),
+          tabs: tabs
+              .map(
+                (spec) => Tab(
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(spec.icon, size: 16),
+                      const SizedBox(width: 6),
+                      Text(spec.label),
+                    ],
+                  ),
+                ),
+              )
+              .toList(),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final l10n = AppLocalizations.of(context);
     final hours = _buildStoreHours(l10n);
+    final plans = SubscriptionPlan.buildPlans(l10n);
+    final currentPlan =
+        plans.firstWhere((plan) => plan.id == _currentPlanId, orElse: () {
+      return plans.first;
+    });
 
-    return Scaffold(
-      appBar: const SellerAppBar(),
-      drawer: const SellerDrawer(),
-      body: SafeArea(
-        top: false,
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.only(bottom: 24),
+    return DefaultTabController(
+      length: 4,
+      child: Scaffold(
+        appBar: const SellerAppBar(),
+        drawer: const SellerDrawer(),
+        body: SafeArea(
+          top: false,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -854,517 +1397,92 @@ class _StoreProfileScreenState extends State<StoreProfileScreen> {
                   child: LinearProgressIndicator(),
                 ),
               Padding(
-                padding: const EdgeInsets.fromLTRB(24, 12, 24, 16),
+                padding: const EdgeInsets.fromLTRB(24, 12, 24, 12),
                 child: FormSectionHeader(
                   title: l10n.storeProfileTitle,
                   subtitle: l10n.storeProfileSubtitle,
                 ),
               ),
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 24),
-                child: Container(
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: kCardColor,
-                    borderRadius: BorderRadius.circular(18),
-                    boxShadow: kSoftShadow,
-                  ),
-                  child: Column(
-                    children: [
-                      Row(
-                        children: [
-                          Container(
-                            width: 56,
-                            height: 56,
-                            decoration: BoxDecoration(
-                              color: Colors.white,
-                              borderRadius: BorderRadius.circular(16),
-                              border: Border.all(
-                                color: kBrandColor.withOpacity(0.12),
-                              ),
-                            ),
-                            child: Padding(
-                              padding: const EdgeInsets.all(8),
-                              child: _logoUrl != null && _logoUrl!.isNotEmpty
-                                  ? Image.network(
-                                _logoUrl!,
-                                fit: BoxFit.contain,
-                                errorBuilder: (context, error, stackTrace) {
-                                  return Image.asset(
-                                    'assets/branding/majdoleen_logo.png',
-                                    fit: BoxFit.contain,
-                                  );
-                                },
-                              )
-                                  : Image.asset(
-                                'assets/branding/majdoleen_logo.png',
-                                fit: BoxFit.contain,
-                              ),
-                            ),
-                          ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  l10n.storeProfileLogoTitle,
-                                  style: theme.textTheme.bodyMedium?.copyWith(
-                                    fontWeight: FontWeight.w700,
-                                  ),
-                                ),
-                                const SizedBox(height: 4),
-                                Text(
-                                  l10n.storeProfileLogoHint,
-                                  style: theme.textTheme.bodySmall?.copyWith(
-                                    color: kInkColor.withOpacity(0.6),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                          OutlinedButton(
-                            onPressed: _isUpdatingLogo ? null : () => _pickAndUpdateImage('logo'),
-                            child: _isUpdatingLogo
-                                ? const SizedBox(
-                              width: 18,
-                              height: 18,
-                              child: CircularProgressIndicator(strokeWidth: 2),
-                            )
-                                : Text(l10n.storeProfileLogoUpdateAction),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 16),
-                      Container(
-                        height: 120,
-                        decoration: BoxDecoration(
-                          color: kSurfaceColor,
-                          borderRadius: BorderRadius.circular(16),
-                          border: Border.all(
-                            color: kBrandColor.withOpacity(0.1),
-                          ),
-                        ),
-                        child: _bannerUrl != null && _bannerUrl!.isNotEmpty
-                            ? ClipRRect(
-                          borderRadius: BorderRadius.circular(16),
-                          child: Image.network(
-                            _bannerUrl!,
-                            fit: BoxFit.cover,
-                            width: double.infinity,
-                            errorBuilder: (context, error, stackTrace) {
-                              return Center(
-                                child: Text(
-                                  l10n.storeProfileBannerLabel,
-                                  style: theme.textTheme.bodySmall?.copyWith(
-                                    color: kInkColor.withOpacity(0.6),
-                                  ),
-                                ),
-                              );
-                            },
-                          ),
-                        )
-                            : Center(
-                          child: Text(
-                            l10n.storeProfileBannerLabel,
-                            style: theme.textTheme.bodySmall?.copyWith(
-                              color: kInkColor.withOpacity(0.6),
-                            ),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 12),
-                      Align(
-                        alignment: AlignmentDirectional.centerStart,
-                        child: OutlinedButton(
-                          onPressed: _isUpdatingBanner ? null : () => _pickAndUpdateImage('banner'),
-                          child: _isUpdatingBanner
-                              ? const SizedBox(
-                            width: 18,
-                            height: 18,
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          )
-                              : Text(l10n.storeProfileBannerUpdateAction),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-              const SizedBox(height: 20),
-              Padding(
-                padding: const EdgeInsets.fromLTRB(24, 0, 24, 12),
-                child: Text(
-                  l10n.storeProfileDetailsTitle,
-                  style: theme.textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-              ),
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 24),
-                child: Container(
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: kCardColor,
-                    borderRadius: BorderRadius.circular(18),
-                    boxShadow: kSoftShadow,
-                  ),
-                  child: Column(
-                    children: [
-                      TextFormField(
-                        controller: _nameController,
-                        decoration: InputDecoration(
-                          labelText: l10n.storeProfileNameLabel,
-                          hintText: l10n.storeProfileNameHint,
-                        ),
-                      ),
-                      const SizedBox(height: 12),
-                      TextFormField(
-                        controller: _slugController,
-                        decoration: InputDecoration(
-                          labelText: l10n.storeProfileSlugLabel,
-                          hintText: l10n.storeProfileSlugHint,
-                        ),
-                      ),
-                      const SizedBox(height: 12),
-                      DropdownButtonFormField<String>(
-                        initialValue: _selectedCategory,
-                        items: _categoryKeys
-                            .map(
-                              (categoryKey) => DropdownMenuItem(
-                            value: categoryKey,
-                            child: Text(_categoryLabel(l10n, categoryKey)),
-                          ),
-                        )
-                            .toList(),
-                        onChanged: (value) {
-                          if (value == null) return;
-                          setState(() {
-                            _selectedCategory = value;
-                          });
-                        },
-                        decoration: InputDecoration(
-                          labelText: l10n.storeProfileCategoryLabel,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-              const SizedBox(height: 20),
-              Padding(
-                padding: const EdgeInsets.fromLTRB(24, 0, 24, 12),
-                child: Text(
-                  l10n.storeProfileContactTitle,
-                  style: theme.textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-              ),
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 24),
-                child: Container(
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: kCardColor,
-                    borderRadius: BorderRadius.circular(18),
-                    boxShadow: kSoftShadow,
-                  ),
-                  child: Column(
-                    children: [
-                      TextFormField(
-                        controller: _sellerPhoneController,
-                        decoration: InputDecoration(
-                          labelText: l10n.storeProfileSellerPhoneLabel,
-                          hintText: l10n.storeProfileSellerPhoneHint,
-                        ),
-                      ),
-                      const SizedBox(height: 12),
-                      TextFormField(
-                        controller: _shopPhoneController,
-                        decoration: InputDecoration(
-                          labelText: l10n.storeProfileShopPhoneLabel,
-                          hintText: l10n.storeProfileShopPhoneHint,
-                        ),
-                      ),
-                      const SizedBox(height: 12),
-                      TextFormField(
-                        controller: _addressController,
-                        maxLines: 2,
-                        decoration: InputDecoration(
-                          labelText: l10n.storeProfileAddressLabel,
-                          hintText: l10n.storeProfileAddressHint,
-                        ),
-                      ),
-
-                      // Map picker directly under address
-                      _buildLocationPicker(theme),
-                    ],
-                  ),
-                ),
-              ),
-              const SizedBox(height: 20),
-              Padding(
-                padding: const EdgeInsets.fromLTRB(24, 0, 24, 12),
-                child: Text(
-                  l10n.storeProfileSeoTitle,
-                  style: theme.textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-              ),
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 24),
-                child: Container(
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: kCardColor,
-                    borderRadius: BorderRadius.circular(18),
-                    boxShadow: kSoftShadow,
-                  ),
-                  child: Column(
-                    children: [
-                      TextFormField(
-                        controller: _metaTitleController,
-                        decoration: InputDecoration(
-                          labelText: l10n.storeProfileMetaTitleLabel,
-                          hintText: l10n.storeProfileMetaTitleHint,
-                        ),
-                      ),
-                      const SizedBox(height: 12),
-                      TextFormField(
-                        controller: _metaDescriptionController,
-                        maxLines: 3,
-                        decoration: InputDecoration(
-                          labelText: l10n.storeProfileMetaDescriptionLabel,
-                          hintText: l10n.storeProfileMetaDescriptionHint,
-                        ),
-                      ),
-                      const SizedBox(height: 16),
-                      Row(
-                        children: [
-                          Expanded(
-                            child: Text(
-                              l10n.storeProfileMetaImageLabel,
-                              style: theme.textTheme.bodyMedium?.copyWith(
-                                fontWeight: FontWeight.w700,
-                              ),
-                            ),
-                          ),
-                          OutlinedButton(
-                            onPressed: _isUpdatingMetaImage ? null : _pickAndUpdateSeoImage,
-                            child: _isUpdatingMetaImage
-                                ? const SizedBox(
-                              width: 18,
-                              height: 18,
-                              child: CircularProgressIndicator(strokeWidth: 2),
-                            )
-                                : Text(l10n.storeProfileMetaImageUpdateAction),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 12),
-                      Container(
-                        height: 120,
-                        decoration: BoxDecoration(
-                          color: kSurfaceColor,
-                          borderRadius: BorderRadius.circular(16),
-                          border: Border.all(
-                            color: kBrandColor.withOpacity(0.1),
-                          ),
-                        ),
-                        child: _metaImageUrl != null && _metaImageUrl!.isNotEmpty
-                            ? ClipRRect(
-                          borderRadius: BorderRadius.circular(16),
-                          child: Image.network(
-                            _metaImageUrl!,
-                            fit: BoxFit.cover,
-                            width: double.infinity,
-                            errorBuilder: (context, error, stackTrace) {
-                              return Center(
-                                child: Text(
-                                  l10n.storeProfileMetaImageLabel,
-                                  style: theme.textTheme.bodySmall?.copyWith(
-                                    color: kInkColor.withOpacity(0.6),
-                                  ),
-                                ),
-                              );
-                            },
-                          ),
-                        )
-                            : Center(
-                          child: Text(
-                            l10n.storeProfileMetaImageLabel,
-                            style: theme.textTheme.bodySmall?.copyWith(
-                              color: kInkColor.withOpacity(0.6),
-                            ),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-              const SizedBox(height: 20),
-              Padding(
-                padding: const EdgeInsets.fromLTRB(24, 0, 24, 12),
-                child: Text(
-                  l10n.storeProfileStatusTitle,
-                  style: theme.textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-              ),
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 24),
-                child: Container(
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: kCardColor,
-                    borderRadius: BorderRadius.circular(18),
-                    boxShadow: kSoftShadow,
-                  ),
-                  child: Column(
-                    children: [
-                      LabeledSwitchRow(
-                        title: l10n.storeProfileStatusOpenTitle,
-                        subtitle: l10n.storeProfileStatusOpenSubtitle,
-                        value: _storeOpen,
-                        onChanged: (value) {
-                          setState(() {
-                            _storeOpen = value;
-                          });
-                        },
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-              const SizedBox(height: 20),
-              Padding(
-                padding: const EdgeInsets.fromLTRB(24, 0, 24, 12),
-                child: Text(
-                  l10n.storeProfileFulfillmentTitle,
-                  style: theme.textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-              ),
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 24),
-                child: Container(
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: kCardColor,
-                    borderRadius: BorderRadius.circular(18),
-                    boxShadow: kSoftShadow,
-                  ),
-                  child: Column(
-                    children: [
-                      LabeledSwitchRow(
-                        title: l10n.storeProfilePickupTitle,
-                        subtitle: l10n.storeProfilePickupSubtitle,
-                        value: _pickupEnabled,
-                        onChanged: (value) {
-                          setState(() {
-                            _pickupEnabled = value;
-                          });
-                        },
-                      ),
-                      const SizedBox(height: 12),
-                      LabeledSwitchRow(
-                        title: l10n.storeProfileDeliveryTitle,
-                        subtitle: l10n.storeProfileDeliverySubtitle,
-                        value: _deliveryEnabled,
-                        onChanged: (value) {
-                          setState(() {
-                            _deliveryEnabled = value;
-                          });
-                        },
-                      ),
-                      const SizedBox(height: 12),
-                      DropdownButtonFormField<String>(
-                        initialValue: _selectedPrepTime,
-                        items: _prepTimeKeys
-                            .map(
-                              (timeKey) => DropdownMenuItem(
-                            value: timeKey,
-                            child: Text(_prepTimeLabel(l10n, timeKey)),
-                          ),
-                        )
-                            .toList(),
-                        onChanged: (value) {
-                          if (value == null) return;
-                          setState(() {
-                            _selectedPrepTime = value;
-                          });
-                        },
-                        decoration: InputDecoration(
-                          labelText: l10n.storeProfilePrepTimeLabel,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-              const SizedBox(height: 20),
-              Padding(
-                padding: const EdgeInsets.fromLTRB(24, 0, 24, 12),
-                child: Text(
-                  l10n.storeProfileBusinessHoursTitle,
-                  style: theme.textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-              ),
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 24),
-                child: Container(
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: kCardColor,
-                    borderRadius: BorderRadius.circular(18),
-                    boxShadow: kSoftShadow,
-                  ),
-                  child: Column(
-                    children: hours
-                        .map(
-                          (hour) => Padding(
-                        padding: const EdgeInsets.only(bottom: 12),
-                        child: _StoreHourRow(hour),
-                      ),
-                    )
-                        .toList(),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 24),
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 24),
-                child: Row(
+              _buildTabBar(theme, l10n),
+              Expanded(
+                child: TabBarView(
                   children: [
-                    Expanded(
-                      child: OutlinedButton(
-                        onPressed: _previewStore,
-                        style: OutlinedButton.styleFrom(
-                          padding: const EdgeInsets.symmetric(vertical: 16),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(14),
-                          ),
-                          side: BorderSide(
-                            color: kBrandColor.withOpacity(0.3),
-                          ),
+                    _buildTabScroll(
+                      context,
+                      [
+                        _SubscriptionPlanSummaryCard(
+                          plan: currentPlan,
+                          label: l10n.subscriptionCurrentLabel,
+                          summary:
+                              l10n.subscriptionCurrentSummary(currentPlan.name),
+                          hint: l10n.subscriptionCurrentHint,
+                          onTap: _openSubscriptionPlans,
                         ),
-                        child: Text(l10n.storeProfilePreviewAction),
-                      ),
+                        const SizedBox(height: 16),
+                        _buildBrandCard(theme, l10n),
+                        const SizedBox(height: 20),
+                        _buildSectionTitle(
+                          theme,
+                          l10n.storeProfileDetailsTitle,
+                        ),
+                        const SizedBox(height: 12),
+                        _buildDetailsCard(l10n),
+                        const SizedBox(height: 24),
+                        _buildActionRow(l10n),
+                      ],
                     ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: FilledButton(
-                        onPressed: _isSaving ? null : _saveProfile,
-                        child: Text(l10n.storeProfileSaveAction),
-                      ),
+                    _buildTabScroll(
+                      context,
+                      [
+                        _buildSectionTitle(
+                          theme,
+                          l10n.storeProfileContactTitle,
+                        ),
+                        const SizedBox(height: 12),
+                        _buildContactCard(theme, l10n),
+                        const SizedBox(height: 24),
+                        _buildActionRow(l10n),
+                      ],
+                    ),
+                    _buildTabScroll(
+                      context,
+                      [
+                        _buildSectionTitle(
+                          theme,
+                          l10n.storeProfileSeoTitle,
+                        ),
+                        const SizedBox(height: 12),
+                        _buildSeoCard(theme, l10n),
+                        const SizedBox(height: 24),
+                        _buildActionRow(l10n),
+                      ],
+                    ),
+                    _buildTabScroll(
+                      context,
+                      [
+                        _buildSectionTitle(
+                          theme,
+                          l10n.storeProfileStatusTitle,
+                        ),
+                        const SizedBox(height: 12),
+                        _buildStatusCard(l10n),
+                        const SizedBox(height: 20),
+                        _buildSectionTitle(
+                          theme,
+                          l10n.storeProfileFulfillmentTitle,
+                        ),
+                        const SizedBox(height: 12),
+                        _buildFulfillmentCard(l10n),
+                        const SizedBox(height: 20),
+                        _buildSectionTitle(
+                          theme,
+                          l10n.storeProfileBusinessHoursTitle,
+                        ),
+                        const SizedBox(height: 12),
+                        _buildBusinessHoursCard(hours),
+                        const SizedBox(height: 24),
+                        _buildActionRow(l10n),
+                      ],
                     ),
                   ],
                 ),
@@ -1372,10 +1490,10 @@ class _StoreProfileScreenState extends State<StoreProfileScreen> {
             ],
           ),
         ),
-      ),
-      bottomNavigationBar: SellerBottomBar(
-        selectedIndex: 2,
-        onTap: (index) => handleNavTap(context, index),
+        bottomNavigationBar: SellerBottomBar(
+          selectedIndex: 2,
+          onTap: (index) => handleNavTap(context, index),
+        ),
       ),
     );
   }
@@ -1389,6 +1507,109 @@ class _StoreHour {
     required this.day,
     required this.hours,
   });
+}
+
+class _ProfileTabSpec {
+  final String label;
+  final IconData icon;
+
+  const _ProfileTabSpec(this.label, this.icon);
+}
+
+class _SubscriptionPlanSummaryCard extends StatelessWidget {
+  final SubscriptionPlan plan;
+  final String label;
+  final String summary;
+  final String hint;
+  final VoidCallback onTap;
+
+  const _SubscriptionPlanSummaryCard({
+    required this.plan,
+    required this.label,
+    required this.summary,
+    required this.hint,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return Material(
+      color: kCardColor,
+      borderRadius: BorderRadius.circular(18),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(18),
+        child: Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(18),
+            border: Border.all(color: plan.accent.withOpacity(0.2)),
+            boxShadow: kSoftShadow,
+          ),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                width: 44,
+                height: 44,
+                decoration: BoxDecoration(
+                  color: plan.accent.withOpacity(0.12),
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                child: Icon(
+                  Icons.workspace_premium_outlined,
+                  color: plan.accent,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      label,
+                      style: theme.textTheme.labelSmall?.copyWith(
+                        color: plan.accent,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      summary,
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      hint,
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: kInkColor.withOpacity(0.7),
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      '${plan.price} - ${plan.period}',
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: kInkColor.withOpacity(0.7),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 12),
+              Icon(
+                Icons.chevron_right,
+                color: kInkColor.withOpacity(0.5),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 }
 
 class _StoreHourRow extends StatelessWidget {

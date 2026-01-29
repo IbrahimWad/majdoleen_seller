@@ -2,7 +2,6 @@ import 'dart:async';
 
 import 'package:country_picker/country_picker.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -11,10 +10,12 @@ import '../core/app_colors.dart';
 import '../core/app_localizations.dart';
 import '../core/app_routes.dart';
 import '../core/app_shadows.dart';
+import '../core/network_utils.dart';
 import '../services/seller_auth_service.dart';
 import '../widgets/app_snackbar.dart';
 import '../widgets/login_field.dart';
 import '../widgets/login_wave_clipper.dart';
+import 'subscription_plans_screen.dart';
 
 class RegisterScreen extends StatefulWidget {
   static const String routeName = AppRoutes.register;
@@ -226,6 +227,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
       showAppSnackBar(context, l10n.verificationInvalidPhone);
       return;
     }
+    if (isOffline(context)) {
+      showAppSnackBar(context, l10n.networkErrorMessage);
+      return;
+    }
 
     setState(() => _isLoading = true);
     FocusScope.of(context).unfocus();
@@ -250,7 +255,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
       if (mounted) {
         debugPrint('Send OTP failed: $e');
         debugPrintStack(stackTrace: stackTrace);
-        showAppSnackBar(context, l10n.registerSendOtpFailed);
+        showAppSnackBar(
+          context,
+          isNetworkError(e) ? l10n.networkErrorMessage : l10n.registerSendOtpFailed,
+        );
       }
     } finally {
       if (mounted) {
@@ -271,6 +279,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
     if (phone == null) {
       showAppSnackBar(context, l10n.verificationInvalidPhone);
       setState(() => _currentStep = 0);
+      return;
+    }
+    if (isOffline(context)) {
+      showAppSnackBar(context, l10n.networkErrorMessage);
       return;
     }
 
@@ -335,6 +347,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
       setState(() => _currentStep = 1);
       return;
     }
+    if (isOffline(context)) {
+      showAppSnackBar(context, l10n.networkErrorMessage);
+      return;
+    }
 
     setState(() => _isLoading = true);
     FocusScope.of(context).unfocus();
@@ -355,13 +371,25 @@ class _RegisterScreenState extends State<RegisterScreen> {
       );
 
       if (mounted) {
-        Navigator.of(context).pushReplacementNamed(AppRoutes.approvalPending);
+        Navigator.of(context).pushReplacement(
+          MaterialPageRoute(
+            builder: (_) => const SubscriptionPlansScreen(
+              isOnboarding: true,
+              completionRoute: AppRoutes.approvalPending,
+            ),
+          ),
+        );
       }
     } catch (e, stackTrace) {
       debugPrint('Complete registration failed: $e');
       debugPrintStack(stackTrace: stackTrace);
       if (mounted) {
-        showAppSnackBar(context, l10n.registerCompleteFailed);
+        showAppSnackBar(
+          context,
+          isNetworkError(e)
+              ? l10n.networkErrorMessage
+              : l10n.registerCompleteFailed,
+        );
       }
     } finally {
       if (mounted) {
@@ -428,7 +456,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
         case 'invalid-phone-number':
           return l10n.verificationInvalidPhone;
         case 'network-request-failed':
-          return l10n.verificationNetworkError;
+          return l10n.networkErrorMessage;
         case 'operation-not-allowed':
         case 'app-not-authorized':
           return l10n.verificationProviderDisabled;
@@ -475,7 +503,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
     if (message.contains('network') ||
         message.contains('socketexception') ||
         message.contains('failed to connect')) {
-      return l10n.verificationNetworkError;
+      return l10n.networkErrorMessage;
     }
     if (message.contains('invalid firebase token')) {
       return l10n.verificationBackendInvalidToken;
@@ -600,6 +628,57 @@ class _RegisterScreenState extends State<RegisterScreen> {
     final flagEmoji = _selectedCountry?.flagEmoji;
     final hintStyle = _registerHintStyle(theme);
 
+    final enabledBorder = UnderlineInputBorder(
+      borderSide: BorderSide(
+        color: kInkColor.withOpacity(0.2),
+        width: 1.2,
+      ),
+    );
+
+    const focusedBorder = UnderlineInputBorder(
+      borderSide: BorderSide(color: kBrandColor, width: 2),
+    );
+
+    Widget countryPrefix() {
+      return Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(10),
+          onTap: _selectCountry,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (flagEmoji != null) ...[
+                  Text(
+                    flagEmoji,
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      fontWeight: FontWeight.w700,
+                      fontSize: labelSize,
+                    ),
+                  ),
+                  const SizedBox(width: 6),
+                ] else ...[
+                  const Icon(Icons.public, size: 16, color: kBrandColor),
+                  const SizedBox(width: 6),
+                ],
+                Text(
+                  codeLabel,
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    fontWeight: FontWeight.w700,
+                    color: kBrandColor,
+                  ),
+                ),
+                const SizedBox(width: 4),
+                const Icon(Icons.expand_more, size: 18, color: kBrandColor),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -612,83 +691,39 @@ class _RegisterScreenState extends State<RegisterScreen> {
           ),
         ),
         const SizedBox(height: 6),
-        TextFormField(
-          controller: _phoneController,
-          keyboardType: TextInputType.phone,
-          textInputAction: TextInputAction.next,
-          autofillHints: const [AutofillHints.telephoneNumber],
-          inputFormatters: [
-            FilteringTextInputFormatter.digitsOnly,
-            LengthLimitingTextInputFormatter(15),
-          ],
-          decoration: InputDecoration(
-            hintText: l10n.phoneHint,
-            hintStyle: hintStyle,
-            prefixIconConstraints: const BoxConstraints(minHeight: 0, minWidth: 0),
-            prefixIcon: Padding(
-              padding: const EdgeInsetsDirectional.only(start: 0, end: 12),
-              child: Material(
-                color: Colors.transparent,
-                child: InkWell(
-                  borderRadius: BorderRadius.circular(10),
-                  onTap: _selectCountry,
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 10,
-                      vertical: 6,
-                    ),
-                    decoration: BoxDecoration(
-                      color: kBrandColor.withOpacity(0.12),
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        if (flagEmoji != null) ...[
-                          Text(
-                            flagEmoji,
-                            style: theme.textTheme.bodyMedium?.copyWith(
-                              fontWeight: FontWeight.w700,
-                              fontSize: labelSize,
-                            ),
-                          ),
-                          const SizedBox(width: 6),
-                        ] else ...[
-                          const Icon(
-                            Icons.public,
-                            size: 16,
-                            color: kBrandColor,
-                          ),
-                          const SizedBox(width: 6),
-                        ],
-                        Text(
-                          codeLabel,
-                          style: theme.textTheme.bodyMedium?.copyWith(
-                            fontWeight: FontWeight.w700,
-                            color: kBrandColor,
-                          ),
-                        ),
-                        const SizedBox(width: 4),
-                        const Icon(
-                          Icons.expand_more,
-                          size: 18,
-                          color: kBrandColor,
-                        ),
-                      ],
-                    ),
+        Directionality(
+          textDirection: TextDirection.ltr,
+          child: TextFormField(
+            controller: _phoneController,
+            keyboardType: TextInputType.phone,
+            textInputAction: TextInputAction.next,
+            autofillHints: const [AutofillHints.telephoneNumber],
+            inputFormatters: [
+              FilteringTextInputFormatter.digitsOnly,
+              LengthLimitingTextInputFormatter(15),
+            ],
+            decoration: InputDecoration(
+              hintText: l10n.phoneHint,
+              hintStyle: hintStyle,
+              contentPadding: EdgeInsets.symmetric(
+                vertical: fieldVerticalPadding,
+              ),
+              enabledBorder: enabledBorder,
+              focusedBorder: focusedBorder,
+              prefixIconConstraints:
+                  const BoxConstraints(minWidth: 0, minHeight: 0),
+              prefixIcon: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  countryPrefix(),
+                  Container(
+                    height: 26,
+                    width: 1,
+                    color: kInkColor.withOpacity(0.15),
                   ),
-                ),
+                  const SizedBox(width: 10),
+                ],
               ),
-            ),
-            contentPadding: EdgeInsets.symmetric(vertical: fieldVerticalPadding),
-            enabledBorder: UnderlineInputBorder(
-              borderSide: BorderSide(
-                color: kInkColor.withOpacity(0.2),
-                width: 1.2,
-              ),
-            ),
-            focusedBorder: const UnderlineInputBorder(
-              borderSide: BorderSide(color: kBrandColor, width: 2),
             ),
           ),
         ),

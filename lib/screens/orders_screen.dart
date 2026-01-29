@@ -60,6 +60,10 @@ class _OrdersScreenState extends State<OrdersScreen> {
   bool _isLoadingMore = false;
   String? _authToken;
   bool _initialLoadStarted = false;
+  final Map<String, int> _deliveryStatusCodeMap =
+      Map<String, int>.from(_deliveryStatusCodes);
+  final Map<String, int> _paymentStatusCodeMap =
+      Map<String, int>.from(_paymentStatusCodes);
 
   static const List<String> _statusKeys = [
     'all',
@@ -195,6 +199,7 @@ class _OrdersScreenState extends State<OrdersScreen> {
       )
           .timeout(_requestTimeout);
       if (!mounted) return;
+      _syncStatusCodeMaps(AppLocalizations.of(context), response.orders);
       setState(() {
         _meta = response.meta ?? _meta;
         if (reset) {
@@ -238,15 +243,37 @@ class _OrdersScreenState extends State<OrdersScreen> {
   String? _deliveryStatusFilterParam() {
     final key = _statusKeys[_statusIndex];
     if (key == 'all') return null;
-    final code = _deliveryStatusCodes[key];
-    return code?.toString() ?? key;
+    final code = _deliveryStatusCodeMap[key];
+    return code != null ? code.toString() : key;
   }
 
   String? _paymentStatusFilterParam() {
     final key = _paymentFilterKeys[_paymentIndex];
     if (key == 'all') return null;
-    final code = _paymentStatusCodes[key];
-    return code?.toString() ?? key;
+    final code = _paymentStatusCodeMap[key];
+    return code != null ? code.toString() : key;
+  }
+
+  void _syncStatusCodeMaps(
+    AppLocalizations l10n,
+    List<SellerOrderSummary> orders,
+  ) {
+    for (final order in orders) {
+      final deliveryCode = order.deliveryStatus;
+      if (deliveryCode != null && order.deliveryStatusLabel.isNotEmpty) {
+        final key = _deliveryKeyFromLabel(l10n, order.deliveryStatusLabel);
+        if (key != null) {
+          _deliveryStatusCodeMap[key] = deliveryCode;
+        }
+      }
+      final paymentCode = order.paymentStatus;
+      if (paymentCode != null && order.paymentStatusLabel.isNotEmpty) {
+        final key = _paymentKeyFromLabel(l10n, order.paymentStatusLabel);
+        if (key != null) {
+          _paymentStatusCodeMap[key] = paymentCode;
+        }
+      }
+    }
   }
 
   void _onSearchChanged(String value) {
@@ -413,21 +440,25 @@ class _OrdersScreenState extends State<OrdersScreen> {
         label: _statusLabel(l10n, 'pending'),
         value: counters?.countFor('pending') ?? 0,
         color: kInfoColor,
+        icon: Icons.timelapse_outlined,
       ),
       SummaryItem(
         label: _statusLabel(l10n, 'processing'),
         value: counters?.countFor('processing') ?? 0,
         color: kWarningColor,
+        icon: Icons.hourglass_bottom_outlined,
       ),
       SummaryItem(
         label: _statusLabel(l10n, 'ready_to_ship'),
         value: counters?.countFor('ready_to_ship') ?? 0,
         color: kSuccessColor,
+        icon: Icons.local_shipping_outlined,
       ),
       SummaryItem(
         label: _statusLabel(l10n, 'delivered'),
         value: counters?.countFor('delivered') ?? 0,
         color: kBrandColor,
+        icon: Icons.check_circle_outline,
       ),
     ];
 
@@ -558,11 +589,14 @@ class _OrdersScreenState extends State<OrdersScreen> {
                 ),
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 24),
-                  child: Wrap(
-                    spacing: 12,
-                    runSpacing: 12,
-                    children:
-                    summaries.map((item) => SummaryCard(item: item)).toList(),
+                  child: Row(
+                    children: [
+                      for (int i = 0; i < summaries.length; i++) ...[
+                        Expanded(child: SummaryCard(item: summaries[i])),
+                        if (i != summaries.length - 1)
+                          const SizedBox(width: 10),
+                      ],
+                    ],
                   ),
                 ),
                 const SizedBox(height: 24),
@@ -737,6 +771,41 @@ String _paymentStatusKeyFromLabel(String label) {
     return 'paid';
   }
   return 'unpaid';
+}
+
+String? _deliveryKeyFromLabel(AppLocalizations l10n, String label) {
+  final normalized = label.trim().toLowerCase();
+  if (normalized.isEmpty) return null;
+  final localMap = <String, String>{
+    l10n.ordersStatusPending.toLowerCase(): 'pending',
+    l10n.ordersStatusProcessing.toLowerCase(): 'processing',
+    l10n.ordersStatusReadyToShip.toLowerCase(): 'ready_to_ship',
+    l10n.ordersStatusReady.toLowerCase(): 'ready_to_ship',
+    l10n.ordersStatusShipped.toLowerCase(): 'shipped',
+    l10n.ordersStatusDelivered.toLowerCase(): 'delivered',
+    l10n.ordersStatusCancelled.toLowerCase(): 'cancelled',
+  };
+  for (final entry in localMap.entries) {
+    if (normalized == entry.key || normalized.contains(entry.key)) {
+      return entry.value;
+    }
+  }
+  return _deliveryStatusKeyFromLabel(label);
+}
+
+String? _paymentKeyFromLabel(AppLocalizations l10n, String label) {
+  final normalized = label.trim().toLowerCase();
+  if (normalized.isEmpty) return null;
+  final localMap = <String, String>{
+    l10n.ordersPaymentStatusPaid.toLowerCase(): 'paid',
+    l10n.ordersPaymentStatusUnpaid.toLowerCase(): 'unpaid',
+  };
+  for (final entry in localMap.entries) {
+    if (normalized == entry.key || normalized.contains(entry.key)) {
+      return entry.value;
+    }
+  }
+  return _paymentStatusKeyFromLabel(label);
 }
 
 String _deliveryStatusKeyFromCode(int? code) {

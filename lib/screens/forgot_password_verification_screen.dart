@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 import '../core/app_colors.dart';
 import '../core/app_localizations.dart';
 import '../core/app_routes.dart';
+import '../core/network_utils.dart';
 import '../services/seller_auth_service.dart';
 import '../widgets/app_snackbar.dart';
 import '../widgets/login_wave_clipper.dart';
@@ -75,6 +76,12 @@ class _ForgotPasswordVerificationScreenState
     if (_phone == null) return;
     if (_isResending || _resendSecondsLeft > 0) return;
 
+    if (isOffline(context)) {
+      final l10n = AppLocalizations.of(context);
+      showAppSnackBar(context, l10n.networkErrorMessage);
+      return;
+    }
+
     setState(() => _isResending = true);
 
     try {
@@ -105,6 +112,9 @@ class _ForgotPasswordVerificationScreenState
   }
 
   String _localizeForgotPasswordError(dynamic error, AppLocalizations l10n) {
+    if (isNetworkError(error)) {
+      return l10n.networkErrorMessage;
+    }
     if (error is Exception) {
       final msg = error.toString();
       if (msg.contains('expired')) {
@@ -124,6 +134,10 @@ class _ForgotPasswordVerificationScreenState
     final code = _codeController.text.trim();
     if (code.length != 6) {
       showAppSnackBar(context, l10n.forgotPasswordOtpRequired);
+      return;
+    }
+    if (isOffline(context)) {
+      showAppSnackBar(context, l10n.networkErrorMessage);
       return;
     }
 
@@ -153,7 +167,11 @@ class _ForgotPasswordVerificationScreenState
           }
         } else {
           final error = result['error'] ?? result['message'] ?? l10n.forgotPasswordOtpVerificationFailed;
-          showAppSnackBar(context, error.toString());
+          if (isNetworkError(error)) {
+            showAppSnackBar(context, l10n.networkErrorMessage);
+          } else {
+            showAppSnackBar(context, error.toString());
+          }
         }
       }
     } catch (e) {

@@ -40,6 +40,7 @@ class _ProductsScreenState extends State<ProductsScreen> {
   String _searchQuery = '';
   int _statusIndex = 0;
   int _stockIndex = 0;
+  bool _filtersExpanded = false;
 
   List<SellerProductSummary> _products = [];
   SellerProductListMeta? _meta;
@@ -261,13 +262,26 @@ class _ProductsScreenState extends State<ProductsScreen> {
     debugPrint('ProductsScreen add product result: ${result?.action}');
     if (result?.action == ProductFormAction.saved) {
       await _loadProducts(reset: true);
-      showAppSnackBar(context, l10n.addProductSubmittedMessage);
+      if (result?.isDraft == true) {
+        showAppSnackBar(context, l10n.addProductDraftSavedMessage);
+      } else {
+        showAppSnackBar(context, l10n.addProductSubmittedMessage);
+      }
     }
   }
 
   Future<void> _openEditProduct(SellerProductSummary product) async {
     debugPrint('ProductsScreen open product details: id=${product.id}');
     Navigator.of(context).push<void>(
+      MaterialPageRoute(
+        builder: (_) => ProductDetailsScreen(product: product),
+      ),
+    );
+  }
+
+  Future<void> _openProductDetails(SellerProductSummary product) async {
+    debugPrint('ProductsScreen open product details: id=${product.id}');
+    await Navigator.of(context).push(
       MaterialPageRoute(
         builder: (_) => ProductDetailsScreen(product: product),
       ),
@@ -298,6 +312,11 @@ class _ProductsScreenState extends State<ProductsScreen> {
             ),
             const SizedBox(height: 16),
             ListTile(
+              leading: const Icon(Icons.edit_outlined),
+              title: Text(l10n.editProductTitle),
+              onTap: () => Navigator.of(context).pop(_QuickAction.edit),
+            ),
+            ListTile(
               leading: const Icon(Icons.toggle_on_outlined),
               title: Text(l10n.productsActionToggleStatus),
               onTap: () => Navigator.of(context).pop(_QuickAction.status),
@@ -317,6 +336,11 @@ class _ProductsScreenState extends State<ProductsScreen> {
               title: Text(l10n.productsActionUpdateStock),
               onTap: () => Navigator.of(context).pop(_QuickAction.stock),
             ),
+            ListTile(
+              leading: const Icon(Icons.delete_outline, color: kDangerColor),
+              title: Text(l10n.editProductDeleteAction),
+              onTap: () => Navigator.of(context).pop(_QuickAction.delete),
+            ),
             const SizedBox(height: 12),
           ],
         ),
@@ -326,6 +350,9 @@ class _ProductsScreenState extends State<ProductsScreen> {
     if (!mounted || action == null) return;
     debugPrint('ProductsScreen quick actions selected: $action');
     switch (action) {
+      case _QuickAction.edit:
+        await _openEditProduct(product);
+        break;
       case _QuickAction.status:
         await _toggleStatus(product);
         break;
@@ -338,6 +365,49 @@ class _ProductsScreenState extends State<ProductsScreen> {
       case _QuickAction.stock:
         await _updateStock(product);
         break;
+      case _QuickAction.delete:
+        await _confirmDeleteFromList(product);
+        break;
+    }
+  }
+
+  Future<void> _confirmDeleteFromList(SellerProductSummary product) async {
+    final l10n = AppLocalizations.of(context);
+    final token = _authToken;
+    if (token == null || token.isEmpty) return;
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(l10n.editProductDeleteTitle),
+        content: Text(l10n.editProductDeleteMessage),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: Text(l10n.editProductDeleteCancel),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(backgroundColor: kDangerColor),
+            onPressed: () => Navigator.of(context).pop(true),
+            child: Text(l10n.editProductDeleteConfirm),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true || !mounted) return;
+
+    try {
+      debugPrint('ProductsScreen delete product: id=${product.id}');
+      await _productsService.deleteProduct(
+        authToken: token,
+        productId: product.id,
+      );
+      if (!mounted) return;
+      await _loadProducts(reset: true);
+      showAppSnackBar(context, l10n.editProductDeletedMessage);
+    } catch (e, stackTrace) {
+      await _handleServiceError(e, stackTrace, l10n.productsDeleteFailed);
     }
   }
 
@@ -367,7 +437,7 @@ class _ProductsScreenState extends State<ProductsScreen> {
     if (token == null || token.isEmpty) return;
 
     debugPrint('ProductsScreen update discount start: id=${product.id}');
-    final input = await _showDiscountDialog(l10n);
+    final input = await _showDiscountDialog();
     if (input == null) return;
 
     try {
@@ -413,18 +483,31 @@ class _ProductsScreenState extends State<ProductsScreen> {
       return;
     }
 
-    final input = await _showPriceDialog(l10n);
+    SellerProductDetails? details;
+    try {
+      details = await _productsService.fetchProductDetails(
+        authToken: token,
+        productId: product.id,
+      );
+    } catch (e, stackTrace) {
+      debugPrint('ProductsScreen fetch details for price dialog failed: $e');
+      debugPrintStack(stackTrace: stackTrace);
+    }
+
+    final input = await _showPriceDialog(
+      initialUnitPrice: details?.unitPrice ?? product.price ?? product.basePrice,
+    );
     if (input == null) return;
 
     try {
       debugPrint(
-        'ProductsScreen update price payload: id=${product.id}, purchase=${input.purchasePrice}, unit=${input.unitPrice}',
+        'ProductsScreen update price payload: id=${product.id}, unit=${input.unitPrice}',
       );
       await _productsService.updatePrice(
         authToken: token,
         productId: product.id,
         hasVariant: 2,
-        purchasePrice: input.purchasePrice,
+        purchasePrice: input.unitPrice,
         unitPrice: input.unitPrice,
       );
       if (!mounted) return;
@@ -460,7 +543,7 @@ class _ProductsScreenState extends State<ProductsScreen> {
       return;
     }
 
-    final quantity = await _showStockDialog(l10n);
+    final quantity = await _showStockDialog();
     if (quantity == null) return;
 
     try {
@@ -498,142 +581,32 @@ class _ProductsScreenState extends State<ProductsScreen> {
     }
   }
 
-  Future<_DiscountInput?> _showDiscountDialog(AppLocalizations l10n) async {
-    final amountController = TextEditingController();
-    int type = 2;
-
+  Future<_DiscountInput?> _showDiscountDialog() async {
     debugPrint('ProductsScreen show discount dialog');
-    final result = await showDialog<_DiscountInput>(
+    return showDialog<_DiscountInput>(
       context: context,
-      builder: (context) => AlertDialog(
-        title: Text(l10n.productsDiscountDialogTitle),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            DropdownButtonFormField<int>(
-              initialValue: type,
-              decoration: InputDecoration(labelText: l10n.productsDiscountTypeLabel),
-              items: [
-                DropdownMenuItem(
-                  value: 1,
-                  child: Text(l10n.productsDiscountTypeFixed),
-                ),
-                DropdownMenuItem(
-                  value: 2,
-                  child: Text(l10n.productsDiscountTypePercent),
-                ),
-              ],
-              onChanged: (value) {
-                if (value == null) return;
-                type = value;
-              },
-            ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: amountController,
-              keyboardType: const TextInputType.numberWithOptions(decimal: true),
-              decoration: InputDecoration(labelText: l10n.productsDiscountAmountLabel),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: Text(l10n.addProductCancel),
-          ),
-          FilledButton(
-            onPressed: () {
-              final amount = double.tryParse(amountController.text.trim()) ?? 0;
-              Navigator.of(context).pop(_DiscountInput(type: type, amount: amount));
-            },
-            child: Text(l10n.editProductSaveAction),
-          ),
-        ],
-      ),
+      builder: (_) => const _DiscountDialog(),
     );
-
-    amountController.dispose();
-    return result;
   }
 
-  Future<_PriceInput?> _showPriceDialog(AppLocalizations l10n) async {
-    final purchaseController = TextEditingController();
-    final unitController = TextEditingController();
-
+  Future<_PriceInput?> _showPriceDialog({
+    double? initialUnitPrice,
+  }) async {
     debugPrint('ProductsScreen show price dialog');
-    final result = await showDialog<_PriceInput>(
+    return showDialog<_PriceInput>(
       context: context,
-      builder: (context) => AlertDialog(
-        title: Text(l10n.productsPriceDialogTitle),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(
-              controller: purchaseController,
-              keyboardType: const TextInputType.numberWithOptions(decimal: true),
-              decoration: InputDecoration(labelText: l10n.productsPurchasePriceLabel),
-            ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: unitController,
-              keyboardType: const TextInputType.numberWithOptions(decimal: true),
-              decoration: InputDecoration(labelText: l10n.productsUnitPriceLabel),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: Text(l10n.addProductCancel),
-          ),
-          FilledButton(
-            onPressed: () {
-              final purchase = double.tryParse(purchaseController.text.trim()) ?? 0;
-              final unit = double.tryParse(unitController.text.trim()) ?? 0;
-              Navigator.of(context).pop(_PriceInput(purchasePrice: purchase, unitPrice: unit));
-            },
-            child: Text(l10n.editProductSaveAction),
-          ),
-        ],
+      builder: (_) => _PriceDialog(
+        initialUnitPrice: initialUnitPrice,
       ),
     );
-
-    purchaseController.dispose();
-    unitController.dispose();
-    return result;
   }
 
-  Future<int?> _showStockDialog(AppLocalizations l10n) async {
-    final quantityController = TextEditingController();
-
+  Future<int?> _showStockDialog() async {
     debugPrint('ProductsScreen show stock dialog');
-    final result = await showDialog<int>(
+    return showDialog<int>(
       context: context,
-      builder: (context) => AlertDialog(
-        title: Text(l10n.productsStockDialogTitle),
-        content: TextField(
-          controller: quantityController,
-          keyboardType: TextInputType.number,
-          decoration: InputDecoration(labelText: l10n.productsQuantityLabel),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: Text(l10n.addProductCancel),
-          ),
-          FilledButton(
-            onPressed: () {
-              final quantity = int.tryParse(quantityController.text.trim()) ?? 0;
-              Navigator.of(context).pop(quantity);
-            },
-            child: Text(l10n.editProductSaveAction),
-          ),
-        ],
-      ),
+      builder: (_) => const _StockDialog(),
     );
-
-    quantityController.dispose();
-    return result;
   }
 
   Future<List<Map<String, dynamic>>?> _showVariationPriceDialog(
@@ -656,91 +629,10 @@ class _ProductsScreenState extends State<ProductsScreen> {
         return null;
       }
 
-      final controllers = variations
-          .map(
-            (variation) => _VariationPriceInput(
-          id: variation.id ?? 0,
-          code: variation.code,
-          purchaseController: TextEditingController(
-            text: variation.purchasePrice?.toString() ?? '',
-          ),
-          unitController: TextEditingController(
-            text: variation.unitPrice?.toString() ?? '',
-          ),
-        ),
-      )
-          .toList();
-
       final result = await showDialog<List<Map<String, dynamic>>>(
         context: context,
-        builder: (context) => AlertDialog(
-          title: Text(l10n.productsVariationPriceDialogTitle),
-          content: SizedBox(
-            width: double.maxFinite,
-            child: ListView.separated(
-              shrinkWrap: true,
-              itemCount: controllers.length,
-              separatorBuilder: (_, __) => const SizedBox(height: 12),
-              itemBuilder: (context, index) {
-                final item = controllers[index];
-                return Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      item.code.isNotEmpty ? item.code : l10n.productsVariationLabel(index + 1),
-                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    TextField(
-                      controller: item.purchaseController,
-                      keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                      decoration: InputDecoration(
-                        labelText: l10n.productsPurchasePriceLabel,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    TextField(
-                      controller: item.unitController,
-                      keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                      decoration: InputDecoration(
-                        labelText: l10n.productsUnitPriceLabel,
-                      ),
-                    ),
-                  ],
-                );
-              },
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(),
-              child: Text(l10n.addProductCancel),
-            ),
-            FilledButton(
-              onPressed: () {
-                final payload = controllers
-                    .map(
-                      (item) => {
-                    'id': item.id,
-                    'purchase_price': double.tryParse(item.purchaseController.text) ?? 0,
-                    'unit_price': double.tryParse(item.unitController.text) ?? 0,
-                  },
-                )
-                    .toList();
-                Navigator.of(context).pop(payload);
-              },
-              child: Text(l10n.editProductSaveAction),
-            ),
-          ],
-        ),
+        builder: (_) => _VariationPriceDialog(variations: variations),
       );
-
-      for (final item in controllers) {
-        item.purchaseController.dispose();
-        item.unitController.dispose();
-      }
 
       return result;
     } catch (e, stackTrace) {
@@ -769,78 +661,10 @@ class _ProductsScreenState extends State<ProductsScreen> {
         return null;
       }
 
-      final controllers = variations
-          .map(
-            (variation) => _VariationStockInput(
-          id: variation.id ?? 0,
-          code: variation.code,
-          quantityController: TextEditingController(
-            text: variation.quantity?.toString() ?? '',
-          ),
-        ),
-      )
-          .toList();
-
       final result = await showDialog<List<Map<String, dynamic>>>(
         context: context,
-        builder: (context) => AlertDialog(
-          title: Text(l10n.productsVariationStockDialogTitle),
-          content: SizedBox(
-            width: double.maxFinite,
-            child: ListView.separated(
-              shrinkWrap: true,
-              itemCount: controllers.length,
-              separatorBuilder: (_, __) => const SizedBox(height: 12),
-              itemBuilder: (context, index) {
-                final item = controllers[index];
-                return Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      item.code.isNotEmpty ? item.code : l10n.productsVariationLabel(index + 1),
-                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    TextField(
-                      controller: item.quantityController,
-                      keyboardType: TextInputType.number,
-                      decoration: InputDecoration(
-                        labelText: l10n.productsQuantityLabel,
-                      ),
-                    ),
-                  ],
-                );
-              },
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(),
-              child: Text(l10n.addProductCancel),
-            ),
-            FilledButton(
-              onPressed: () {
-                final payload = controllers
-                    .map(
-                      (item) => {
-                    'id': item.id,
-                    'quantity': int.tryParse(item.quantityController.text) ?? 0,
-                  },
-                )
-                    .toList();
-                Navigator.of(context).pop(payload);
-              },
-              child: Text(l10n.editProductSaveAction),
-            ),
-          ],
-        ),
+        builder: (_) => _VariationStockDialog(variations: variations),
       );
-
-      for (final item in controllers) {
-        item.quantityController.dispose();
-      }
 
       return result;
     } catch (e, stackTrace) {
@@ -890,6 +714,46 @@ class _ProductsScreenState extends State<ProductsScreen> {
     return accents[id.abs() % accents.length];
   }
 
+  Widget _buildFilterGroup({
+    required ThemeData theme,
+    required String title,
+    required IconData icon,
+    required List<Widget> children,
+  }) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: kSurfaceColor,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: kBrandColor.withOpacity(0.08)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(icon, size: 18, color: kInkColor.withOpacity(0.7)),
+              const SizedBox(width: 8),
+              Text(
+                title,
+                style: theme.textTheme.bodySmall?.copyWith(
+                  fontWeight: FontWeight.w700,
+                  color: kInkColor.withOpacity(0.7),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: children,
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -901,16 +765,19 @@ class _ProductsScreenState extends State<ProductsScreen> {
         label: l10n.productsSummaryTotal,
         value: _meta?.total ?? _products.length,
         color: kBrandColor,
+        icon: Icons.inventory_2_outlined,
       ),
       SummaryItem(
         label: l10n.productsSummaryActive,
         value: _activeCount,
         color: kSuccessColor,
+        icon: Icons.check_circle_outline,
       ),
       SummaryItem(
         label: l10n.productsSummaryLowStock,
         value: _lowStockCount,
         color: kWarningColor,
+        icon: Icons.warning_amber_rounded,
       ),
     ];
 
@@ -963,90 +830,145 @@ class _ProductsScreenState extends State<ProductsScreen> {
                   ),
                 ),
                 Padding(
-                  padding: const EdgeInsets.only(left: 24, bottom: 12),
-                  child: SingleChildScrollView(
-                    scrollDirection: Axis.horizontal,
-                    child: Row(
-                      children: List.generate(_statusFilterKeys.length, (index) {
-                        final isSelected = _statusIndex == index;
-                        return Padding(
-                          padding: const EdgeInsets.only(right: 10),
-                          child: ChoiceChip(
-                            label: Text(
-                              _statusFilterLabel(l10n, _statusFilterKeys[index]),
-                            ),
-                            selected: isSelected,
-                            onSelected: (_) {
-                              debugPrint(
-                                'ProductsScreen status filter selected: ${_statusFilterKeys[index]}',
-                              );
-                              setState(() {
-                                _statusIndex = index;
-                              });
-                              _loadProducts(reset: true);
-                            },
-                            labelStyle: theme.textTheme.bodySmall?.copyWith(
-                              color: isSelected ? Colors.white : kInkColor,
-                              fontWeight: FontWeight.w600,
-                            ),
-                            selectedColor: kBrandColor,
-                            backgroundColor: Colors.white,
-                            side: BorderSide(
-                              color: isSelected
-                                  ? kBrandColor
-                                  : kBrandColor.withOpacity(0.2),
-                            ),
-                          ),
-                        );
-                      }),
+                  padding: const EdgeInsets.fromLTRB(24, 0, 24, 12),
+                  child: Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(18),
+                      border: Border.all(color: kBrandColor.withOpacity(0.12)),
+                      boxShadow: kSoftShadow,
                     ),
-                  ),
-                ),
-                Padding(
-                  padding: const EdgeInsets.only(left: 24, bottom: 12),
-                  child: SingleChildScrollView(
-                    scrollDirection: Axis.horizontal,
-                    child: Row(
-                      children: List.generate(_stockFilterKeys.length, (index) {
-                        final isSelected = _stockIndex == index;
-                        return Padding(
-                          padding: const EdgeInsets.only(right: 10),
-                          child: ChoiceChip(
-                            label: Text(
-                              _stockFilterLabel(l10n, _stockFilterKeys[index]),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Container(
+                              width: 36,
+                              height: 36,
+                              decoration: BoxDecoration(
+                                color: kBrandColor.withOpacity(0.12),
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: const Icon(
+                                Icons.tune,
+                                color: kBrandColor,
+                                size: 18,
+                              ),
                             ),
-                            selected: isSelected,
-                            onSelected: (_) {
-                              debugPrint(
-                                'ProductsScreen stock filter selected: ${_stockFilterKeys[index]}',
-                              );
-                              setState(() {
-                                _stockIndex = index;
-                              });
-                            },
-                            labelStyle: theme.textTheme.bodySmall?.copyWith(
-                              color: isSelected ? Colors.white : kInkColor,
-                              fontWeight: FontWeight.w600,
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Text(
+                                l10n.productsFiltersTitle,
+                                style: theme.textTheme.titleSmall?.copyWith(
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
                             ),
-                            selectedColor: kBrandColor,
-                            backgroundColor: Colors.white,
-                            side: BorderSide(
-                              color: isSelected
-                                  ? kBrandColor
-                                  : kBrandColor.withOpacity(0.2),
+                            TextButton.icon(
+                              onPressed: () {
+                                setState(() {
+                                  _filtersExpanded = !_filtersExpanded;
+                                });
+                              },
+                              icon: Icon(
+                                _filtersExpanded
+                                    ? Icons.keyboard_arrow_up
+                                    : Icons.keyboard_arrow_down,
+                                color: kBrandColor,
+                              ),
+                              label: Text(
+                                _filtersExpanded
+                                    ? l10n.productsFiltersHide
+                                    : l10n.productsFiltersShow,
+                                style: theme.textTheme.labelLarge?.copyWith(
+                                  color: kBrandColor,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
                             ),
-                          ),
-                        );
-                      }),
+                          ],
+                        ),
+                        AnimatedSize(
+                          duration: const Duration(milliseconds: 250),
+                          curve: Curves.easeInOut,
+                          child: _filtersExpanded
+                              ? Column(
+                                  children: [
+                                    const SizedBox(height: 12),
+                                    _buildFilterGroup(
+                                      theme: theme,
+                                      title: l10n.productsFilterTitleStatus,
+                                      icon: Icons.toggle_on_outlined,
+                                      children: List.generate(
+                                        _statusFilterKeys.length,
+                                        (index) {
+                                          final isSelected = _statusIndex == index;
+                                          return _FilterChip(
+                                            label: _statusFilterLabel(
+                                              l10n,
+                                              _statusFilterKeys[index],
+                                            ),
+                                            selected: isSelected,
+                                            onSelected: () {
+                                              debugPrint(
+                                                'ProductsScreen status filter selected: ${_statusFilterKeys[index]}',
+                                              );
+                                              setState(() {
+                                                _statusIndex = index;
+                                              });
+                                              _loadProducts(reset: true);
+                                            },
+                                          );
+                                        },
+                                      ),
+                                    ),
+                                    const SizedBox(height: 12),
+                                    _buildFilterGroup(
+                                      theme: theme,
+                                      title: l10n.productsFilterTitleStock,
+                                      icon: Icons.inventory_2_outlined,
+                                      children: List.generate(
+                                        _stockFilterKeys.length,
+                                        (index) {
+                                          final isSelected = _stockIndex == index;
+                                          return _FilterChip(
+                                            label: _stockFilterLabel(
+                                              l10n,
+                                              _stockFilterKeys[index],
+                                            ),
+                                            selected: isSelected,
+                                            onSelected: () {
+                                              debugPrint(
+                                                'ProductsScreen stock filter selected: ${_stockFilterKeys[index]}',
+                                              );
+                                              setState(() {
+                                                _stockIndex = index;
+                                              });
+                                            },
+                                          );
+                                        },
+                                      ),
+                                    ),
+                                  ],
+                                )
+                              : const SizedBox.shrink(),
+                        ),
+                      ],
                     ),
                   ),
                 ),
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 24),
-                  child: Wrap(
-                    spacing: 12,
-                    runSpacing: 12,
-                    children: summaries.map((item) => SummaryCard(item: item)).toList(),
+                  child: Row(
+                    children: [
+                      Expanded(child: SummaryCard(item: summaries[0])),
+                      const SizedBox(width: 12),
+                      Expanded(child: SummaryCard(item: summaries[1])),
+                      const SizedBox(width: 12),
+                      Expanded(child: SummaryCard(item: summaries[2])),
+                    ],
                   ),
                 ),
                 const SizedBox(height: 24),
@@ -1097,7 +1019,7 @@ class _ProductsScreenState extends State<ProductsScreen> {
                               child: _ProductCard(
                                 product: product,
                                 accent: _accentForProduct(product.id),
-                                onTap: () => _openEditProduct(product),
+                                onTap: () => _openProductDetails(product),
                                 onActions: () => _showQuickActions(product),
                               ),
                             ),
@@ -1127,7 +1049,47 @@ class _ProductsScreenState extends State<ProductsScreen> {
   }
 }
 
-enum _QuickAction { status, discount, price, stock }
+enum _QuickAction { edit, status, discount, price, stock, delete }
+
+class _FilterChip extends StatelessWidget {
+  final String label;
+  final bool selected;
+  final VoidCallback onSelected;
+
+  const _FilterChip({
+    required this.label,
+    required this.selected,
+    required this.onSelected,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final color = selected ? kBrandColor : kInkColor;
+    return InkWell(
+      onTap: onSelected,
+      borderRadius: BorderRadius.circular(999),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+        decoration: BoxDecoration(
+          color: selected ? kBrandColor : Colors.white,
+          borderRadius: BorderRadius.circular(999),
+          border: Border.all(
+            color: selected ? kBrandColor : kBrandColor.withOpacity(0.2),
+          ),
+          boxShadow: selected ? kSoftShadow : null,
+        ),
+        child: Text(
+          label,
+          style: theme.textTheme.bodySmall?.copyWith(
+            color: selected ? Colors.white : color,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+      ),
+    );
+  }
+}
 
 class _DiscountInput {
   final int type;
@@ -1137,22 +1099,19 @@ class _DiscountInput {
 }
 
 class _PriceInput {
-  final double purchasePrice;
   final double unitPrice;
 
-  const _PriceInput({required this.purchasePrice, required this.unitPrice});
+  const _PriceInput({required this.unitPrice});
 }
 
 class _VariationPriceInput {
   final int id;
   final String code;
-  final TextEditingController purchaseController;
   final TextEditingController unitController;
 
   const _VariationPriceInput({
     required this.id,
     required this.code,
-    required this.purchaseController,
     required this.unitController,
   });
 }
@@ -1167,6 +1126,395 @@ class _VariationStockInput {
     required this.code,
     required this.quantityController,
   });
+}
+
+class _DiscountDialog extends StatefulWidget {
+  const _DiscountDialog();
+
+  @override
+  State<_DiscountDialog> createState() => _DiscountDialogState();
+}
+
+class _DiscountDialogState extends State<_DiscountDialog> {
+  late final TextEditingController _amountController;
+  int _type = 2;
+
+  @override
+  void initState() {
+    super.initState();
+    _amountController = TextEditingController();
+  }
+
+  @override
+  void dispose() {
+    _amountController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+    return AlertDialog(
+      title: Text(l10n.productsDiscountDialogTitle),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          DropdownButtonFormField<int>(
+            initialValue: _type,
+            decoration: InputDecoration(labelText: l10n.productsDiscountTypeLabel),
+            items: [
+              DropdownMenuItem(
+                value: 2,
+                child: Text(l10n.productsDiscountTypeFixed),
+              ),
+              DropdownMenuItem(
+                value: 1,
+                child: Text(l10n.productsDiscountTypePercent),
+              ),
+            ],
+            onChanged: (value) {
+              if (value == null) return;
+              setState(() {
+                _type = value;
+              });
+            },
+          ),
+          const SizedBox(height: 12),
+          TextField(
+            controller: _amountController,
+            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+            decoration: InputDecoration(labelText: l10n.productsDiscountAmountLabel),
+          ),
+        ],
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: Text(l10n.addProductCancel),
+        ),
+        FilledButton(
+          onPressed: () {
+            final amount = double.tryParse(_amountController.text.trim()) ?? 0;
+            Navigator.of(context).pop(_DiscountInput(type: _type, amount: amount));
+          },
+          child: Text(l10n.editProductSaveAction),
+        ),
+      ],
+    );
+  }
+}
+
+class _PriceDialog extends StatefulWidget {
+  final double? initialUnitPrice;
+
+  const _PriceDialog({
+    this.initialUnitPrice,
+  });
+
+  @override
+  State<_PriceDialog> createState() => _PriceDialogState();
+}
+
+class _PriceDialogState extends State<_PriceDialog> {
+  late final TextEditingController _unitController;
+  late final double? _initialUnitPrice;
+
+  @override
+  void initState() {
+    super.initState();
+    _initialUnitPrice = widget.initialUnitPrice;
+    _unitController = TextEditingController(
+      text: _initialUnitPrice?.toString() ?? '',
+    );
+  }
+
+  @override
+  void dispose() {
+    _unitController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+    return AlertDialog(
+      title: Text(l10n.productsPriceDialogTitle),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          TextField(
+            controller: _unitController,
+            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+            decoration: InputDecoration(labelText: l10n.productsSellingPriceLabel),
+          ),
+        ],
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: Text(l10n.addProductCancel),
+        ),
+        FilledButton(
+          onPressed: () {
+            final unitText = _unitController.text.trim();
+            final unit = unitText.isEmpty
+                ? (_initialUnitPrice ?? 0)
+                : double.tryParse(unitText) ?? 0;
+            Navigator.of(context).pop(
+              _PriceInput(unitPrice: unit),
+            );
+          },
+          child: Text(l10n.editProductSaveAction),
+        ),
+      ],
+    );
+  }
+}
+
+class _StockDialog extends StatefulWidget {
+  const _StockDialog();
+
+  @override
+  State<_StockDialog> createState() => _StockDialogState();
+}
+
+class _StockDialogState extends State<_StockDialog> {
+  late final TextEditingController _quantityController;
+
+  @override
+  void initState() {
+    super.initState();
+    _quantityController = TextEditingController();
+  }
+
+  @override
+  void dispose() {
+    _quantityController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+    return AlertDialog(
+      title: Text(l10n.productsStockDialogTitle),
+      content: TextField(
+        controller: _quantityController,
+        keyboardType: TextInputType.number,
+        decoration: InputDecoration(labelText: l10n.productsQuantityLabel),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: Text(l10n.addProductCancel),
+        ),
+        FilledButton(
+          onPressed: () {
+            final quantity = int.tryParse(_quantityController.text.trim()) ?? 0;
+            Navigator.of(context).pop(quantity);
+          },
+          child: Text(l10n.editProductSaveAction),
+        ),
+      ],
+    );
+  }
+}
+
+class _VariationPriceDialog extends StatefulWidget {
+  final List<SellerProductVariation> variations;
+
+  const _VariationPriceDialog({required this.variations});
+
+  @override
+  State<_VariationPriceDialog> createState() => _VariationPriceDialogState();
+}
+
+class _VariationPriceDialogState extends State<_VariationPriceDialog> {
+  late final List<_VariationPriceInput> _inputs;
+
+  @override
+  void initState() {
+    super.initState();
+    _inputs = widget.variations
+        .map(
+          (variation) => _VariationPriceInput(
+            id: variation.id ?? 0,
+            code: variation.code,
+            unitController: TextEditingController(
+              text: variation.unitPrice?.toString() ?? '',
+            ),
+          ),
+        )
+        .toList();
+  }
+
+  @override
+  void dispose() {
+    for (final item in _inputs) {
+      item.unitController.dispose();
+    }
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+    return AlertDialog(
+      title: Text(l10n.productsVariationPriceDialogTitle),
+      content: SizedBox(
+        width: double.maxFinite,
+        child: ListView.separated(
+          shrinkWrap: true,
+          itemCount: _inputs.length,
+          separatorBuilder: (_, __) => const SizedBox(height: 12),
+          itemBuilder: (context, index) {
+            final item = _inputs[index];
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  item.code.isNotEmpty
+                      ? item.code
+                      : l10n.productsVariationLabel(index + 1),
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                        fontWeight: FontWeight.w600,
+                      ),
+                ),
+                TextField(
+                  controller: item.unitController,
+                  keyboardType:
+                      const TextInputType.numberWithOptions(decimal: true),
+                  decoration: InputDecoration(
+                    labelText: l10n.productsSellingPriceLabel,
+                  ),
+                ),
+              ],
+            );
+          },
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: Text(l10n.addProductCancel),
+        ),
+        FilledButton(
+          onPressed: () {
+            final payload = _inputs
+                .map(
+                  (item) => {
+                    'id': item.id,
+                    'unit_price':
+                        double.tryParse(item.unitController.text) ?? 0,
+                    'purchase_price':
+                        double.tryParse(item.unitController.text) ?? 0,
+                  },
+                )
+                .toList();
+            Navigator.of(context).pop(payload);
+          },
+          child: Text(l10n.editProductSaveAction),
+        ),
+      ],
+    );
+  }
+}
+
+class _VariationStockDialog extends StatefulWidget {
+  final List<SellerProductVariation> variations;
+
+  const _VariationStockDialog({required this.variations});
+
+  @override
+  State<_VariationStockDialog> createState() => _VariationStockDialogState();
+}
+
+class _VariationStockDialogState extends State<_VariationStockDialog> {
+  late final List<_VariationStockInput> _inputs;
+
+  @override
+  void initState() {
+    super.initState();
+    _inputs = widget.variations
+        .map(
+          (variation) => _VariationStockInput(
+            id: variation.id ?? 0,
+            code: variation.code,
+            quantityController: TextEditingController(
+              text: variation.quantity?.toString() ?? '',
+            ),
+          ),
+        )
+        .toList();
+  }
+
+  @override
+  void dispose() {
+    for (final item in _inputs) {
+      item.quantityController.dispose();
+    }
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+    return AlertDialog(
+      title: Text(l10n.productsVariationStockDialogTitle),
+      content: SizedBox(
+        width: double.maxFinite,
+        child: ListView.separated(
+          shrinkWrap: true,
+          itemCount: _inputs.length,
+          separatorBuilder: (_, __) => const SizedBox(height: 12),
+          itemBuilder: (context, index) {
+            final item = _inputs[index];
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  item.code.isNotEmpty
+                      ? item.code
+                      : l10n.productsVariationLabel(index + 1),
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                        fontWeight: FontWeight.w600,
+                      ),
+                ),
+                const SizedBox(height: 8),
+                TextField(
+                  controller: item.quantityController,
+                  keyboardType: TextInputType.number,
+                  decoration: InputDecoration(
+                    labelText: l10n.productsQuantityLabel,
+                  ),
+                ),
+              ],
+            );
+          },
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: Text(l10n.addProductCancel),
+        ),
+        FilledButton(
+          onPressed: () {
+            final payload = _inputs
+                .map(
+                  (item) => {
+                    'id': item.id,
+                    'quantity': int.tryParse(item.quantityController.text) ?? 0,
+                  },
+                )
+                .toList();
+            Navigator.of(context).pop(payload);
+          },
+          child: Text(l10n.editProductSaveAction),
+        ),
+      ],
+    );
+  }
 }
 
 String _statusFilterLabel(AppLocalizations l10n, String key) {
@@ -1195,7 +1543,7 @@ String _stockFilterLabel(AppLocalizations l10n, String key) {
 
 String _productStatusLabel(AppLocalizations l10n, int status) {
   if (status == 1) return l10n.productsStatusActive;
-  return l10n.productsStatusInactive;
+  return l10n.productsStatusDraft;
 }
 
 class _ProductCard extends StatelessWidget {
@@ -1224,88 +1572,160 @@ class _ProductCard extends StatelessWidget {
         ? product.permalink
         : '${l10n.productsProductId} #${product.id}';
     final thumbnailUrl = ApiConfig.resolveMediaUrl(product.thumbnailImage);
+    final description = product.description?.trim() ?? '';
+    final name =
+        product.name.isNotEmpty ? product.name : l10n.productsUnnamed;
+    final metaPills = <Widget>[
+      if (product.unit != null && product.unit!.trim().isNotEmpty)
+        _InfoPill(
+          label: product.unit!.trim(),
+          icon: Icons.straighten_outlined,
+          color: kInfoColor,
+        ),
+      if (product.isVariable)
+        _InfoPill(
+          label: l10n.productsVariationsTitle,
+          icon: Icons.widgets_outlined,
+          color: kBrandDark,
+        ),
+    ];
 
     return Material(
       color: Colors.transparent,
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(18),
+        borderRadius: BorderRadius.circular(22),
         child: Container(
-          padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.all(18),
           decoration: BoxDecoration(
             color: kCardColor,
-            borderRadius: BorderRadius.circular(18),
+            borderRadius: BorderRadius.circular(22),
+            border: Border.all(color: accent.withOpacity(0.12)),
             boxShadow: kSoftShadow,
           ),
-          child: Row(
+          child: Column(
             children: [
-              _ProductThumbnail(
-                name: product.name,
-                accent: accent,
-                imageUrl: thumbnailUrl,
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      product.name.isNotEmpty ? product.name : l10n.productsUnnamed,
-                      style: theme.textTheme.bodyMedium?.copyWith(
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                    const SizedBox(height: 6),
-                    Text(
-                      subtitle,
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        color: kInkColor.withOpacity(0.6),
-                      ),
-                    ),
-                    const SizedBox(height: 6),
-                    Text(
-                      stockLabel,
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        color: stockColor,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(width: 12),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.end,
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    priceLabel,
-                    style: theme.textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.w700,
+                  _ProductThumbnail(
+                    name: product.name,
+                    accent: accent,
+                    imageUrl: thumbnailUrl,
+                    size: 72,
+                  ),
+                  const SizedBox(width: 14),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Expanded(
+                              child: Text(
+                                name,
+                                style: theme.textTheme.titleSmall?.copyWith(
+                                  fontWeight: FontWeight.w700,
+                                  color: kInkColor,
+                                ),
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                            if (onActions != null) ...[
+                              const SizedBox(width: 8),
+                              _ActionButton(
+                                onTap: onActions!,
+                                tooltip: l10n.productsQuickActions,
+                              ),
+                            ],
+                          ],
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          subtitle,
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: kInkColor.withOpacity(0.6),
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        if (description.isNotEmpty) ...[
+                          const SizedBox(height: 6),
+                          Text(
+                            description,
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              color: kInkColor.withOpacity(0.55),
+                            ),
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ],
+                        if (metaPills.isNotEmpty) ...[
+                          const SizedBox(height: 10),
+                          Wrap(
+                            spacing: 8,
+                            runSpacing: 6,
+                            children: metaPills,
+                          )
+                        ],
+                      ],
                     ),
                   ),
-                  const SizedBox(height: 8),
+                ],
+              ),
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  Expanded(
+                    child: Wrap(
+                      spacing: 8,
+                      runSpacing: 6,
+                      children: [
+                        _InfoPill(
+                          label: stockLabel,
+                          icon: Icons.inventory_2_outlined,
+                          color: stockColor,
+                        ),
+                        _InfoPill(
+                          label: statusLabel,
+                          icon: product.status == 1
+                              ? Icons.check_circle_outline
+                              : Icons.schedule_outlined,
+                          color: statusColor,
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 8),
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                     decoration: BoxDecoration(
-                      color: statusColor.withOpacity(0.15),
+                      color: kBrandColor.withOpacity(0.08),
                       borderRadius: BorderRadius.circular(999),
+                      border: Border.all(color: kBrandColor.withOpacity(0.2)),
                     ),
-                    child: Text(
-                      statusLabel,
-                      style: theme.textTheme.labelSmall?.copyWith(
-                        color: statusColor,
-                        fontWeight: FontWeight.w700,
-                      ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(
+                          Icons.local_offer_outlined,
+                          size: 16,
+                          color: kBrandColor,
+                        ),
+                        const SizedBox(width: 6),
+                        Text(
+                          priceLabel,
+                          style: theme.textTheme.labelLarge?.copyWith(
+                            color: kBrandColor,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ],
                     ),
                   ),
-                  if (onActions != null) ...[
-                    const SizedBox(height: 8),
-                    IconButton(
-                      onPressed: onActions,
-                      icon: const Icon(Icons.more_horiz),
-                      tooltip: l10n.productsQuickActions,
-                    ),
-                  ],
                 ],
                 //edit
                 //editيس
@@ -1344,38 +1764,57 @@ class _ProductThumbnail extends StatelessWidget {
   final String name;
   final Color accent;
   final String imageUrl;
+  final double size;
 
   const _ProductThumbnail({
     required this.name,
     required this.accent,
     required this.imageUrl,
+    this.size = 52,
   });
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final initialLetter = name.isNotEmpty ? name[0].toUpperCase() : '?';
+    final borderRadius = BorderRadius.circular(18);
 
-    if (imageUrl.isNotEmpty) {
-      return ClipRRect(
-        borderRadius: BorderRadius.circular(16),
-        child: Image.network(
-          imageUrl,
-          width: 52,
-          height: 52,
-          fit: BoxFit.cover,
-          errorBuilder: (_, __, ___) => _fallback(theme, initialLetter),
-        ),
-      );
-    }
+    final Widget content = imageUrl.isNotEmpty
+        ? Image.network(
+            imageUrl,
+            width: size,
+            height: size,
+            fit: BoxFit.cover,
+            errorBuilder: (_, __, ___) => _fallback(theme, initialLetter),
+          )
+        : _fallback(theme, initialLetter);
 
-    return _fallback(theme, initialLetter);
+    return Container(
+      width: size,
+      height: size,
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: borderRadius,
+        border: Border.all(color: accent.withOpacity(0.18)),
+        boxShadow: [
+          BoxShadow(
+            color: accent.withOpacity(0.15),
+            blurRadius: 10,
+            offset: const Offset(0, 6),
+          ),
+        ],
+      ),
+      child: ClipRRect(
+        borderRadius: borderRadius,
+        child: content,
+      ),
+    );
   }
 
   Widget _fallback(ThemeData theme, String initialLetter) {
     return Container(
-      width: 52,
-      height: 52,
+      width: size,
+      height: size,
       decoration: BoxDecoration(
         color: accent,
         borderRadius: BorderRadius.circular(16),
@@ -1386,6 +1825,82 @@ class _ProductThumbnail extends StatelessWidget {
           style: theme.textTheme.titleMedium?.copyWith(
             fontWeight: FontWeight.w700,
             color: kInkColor,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _InfoPill extends StatelessWidget {
+  final String label;
+  final IconData? icon;
+  final Color color;
+
+  const _InfoPill({
+    required this.label,
+    required this.color,
+    this.icon,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.12),
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (icon != null) ...[
+            Icon(icon, size: 14, color: color),
+            const SizedBox(width: 6),
+          ],
+          Text(
+            label,
+            style: theme.textTheme.labelSmall?.copyWith(
+              color: color,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ActionButton extends StatelessWidget {
+  final VoidCallback onTap;
+  final String? tooltip;
+
+  const _ActionButton({
+    required this.onTap,
+    this.tooltip,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Tooltip(
+      message: tooltip ?? '',
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(12),
+        child: Ink(
+          decoration: BoxDecoration(
+            color: kSurfaceColor,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: kInkColor.withOpacity(0.08)),
+          ),
+          child: const Padding(
+            padding: EdgeInsets.all(8),
+            child: Icon(
+              Icons.more_horiz,
+              size: 18,
+              color: kInkColor,
+            ),
           ),
         ),
       ),

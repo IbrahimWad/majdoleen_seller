@@ -93,8 +93,9 @@ class SellerProductDiscount {
 
   factory SellerProductDiscount.fromJson(Map<String, dynamic> json) {
     return SellerProductDiscount(
-      amount: _parseDouble(json['amount']) ?? 0,
-      discountType: _parseInt(json['discountType'] ?? json['discount_type']) ?? 0,
+      amount: _parseDouble(json['amount'] ?? json['discount_amount']) ?? 0,
+      discountType:
+          _parseInt(json['discountType'] ?? json['discount_type']) ?? 0,
     );
   }
 }
@@ -219,14 +220,18 @@ class SellerProductListResponse {
 
 class SellerProductVariation {
   final int? id;
+  final String name;
   final String code;
+  final String? sku;
   final double? purchasePrice;
   final double? unitPrice;
   final int? quantity;
 
   const SellerProductVariation({
     this.id,
+    this.name = '',
     required this.code,
+    this.sku,
     this.purchasePrice,
     this.unitPrice,
     this.quantity,
@@ -235,7 +240,17 @@ class SellerProductVariation {
   factory SellerProductVariation.fromJson(Map<String, dynamic> json) {
     return SellerProductVariation(
       id: _parseInt(json['id']),
-      code: _parseString(json['code']) ?? '',
+      name: _parseString(json['name']) ??
+          _parseString(json['variant_name']) ??
+          _parseString(json['title']) ??
+          _parseString(json['label']) ??
+          '',
+      code: _parseString(json['code']) ??
+          _parseString(json['variant_code']) ??
+          _parseString(json['variant']) ??
+          _parseString(json['sku']) ??
+          '',
+      sku: _parseString(json['sku']),
       purchasePrice: _parseDouble(json['purchase_price']),
       unitPrice: _parseDouble(json['unit_price']),
       quantity: _parseInt(json['quantity']),
@@ -260,11 +275,19 @@ class SellerProductDetails {
       _parseString(raw['short_description']) ??
       '';
   int get productType =>
-      _parseInt(raw['product_type'] ?? raw['product_type_id']) ?? 2;
+      _parseInt(
+        raw['has_variant'] ??
+            raw['has_variation'] ??
+            raw['product_type'] ??
+            raw['product_type_id'],
+      ) ??
+      2;
   int get status => _parseInt(raw['status']) ?? 1;
   int get hasVariant => _parseInt(raw['has_variant']) ?? 0;
   int? get unitId => _parseInt(raw['unit_id'] ?? raw['unit']);
-  int? get conditionId => _parseInt(raw['condition_id'] ?? raw['condition']);
+  int? get conditionId => _parseInt(
+        raw['condition_id'] ?? raw['conditions'] ?? raw['condition'],
+      );
   int? get discountAmountType => _parseInt(raw['discount_amount_type']);
   double? get discountAmount => _parseDouble(raw['discount_amount']);
   double? get purchasePrice => _parseDouble(raw['purchase_price']);
@@ -277,8 +300,17 @@ class SellerProductDetails {
     return rawValue is String ? rawValue : null;
   }
 
+  List<int> get categoryIds {
+    final value = raw['product_cats'] ??
+        raw['categories'] ??
+        raw['product_categories'] ??
+        raw['category_ids'];
+    return _parseIdList(value);
+  }
+
   List<SellerProductMediaUpload> get galleryImages {
     const keys = [
+      'gallery_images',
       'product_images',
       'images',
       'gallery',
@@ -294,6 +326,55 @@ class SellerProductDetails {
       }
     }
     return const [];
+  }
+
+  Map<int, List<SellerProductMediaUpload>> get colorVariantImages {
+    final value = raw['color_variant_images'] ??
+        raw['color_images'] ??
+        raw['colorImages'];
+    final Map<int, List<SellerProductMediaUpload>> mapped = {};
+    if (value is Map) {
+      for (final entry in value.entries) {
+        final colorId = _parseInt(entry.key);
+        if (colorId == null) continue;
+        final uploads = _parseMediaList(entry.value);
+        if (uploads.isNotEmpty) {
+          mapped[colorId] = uploads;
+        }
+      }
+      return mapped;
+    }
+    if (value is List) {
+      for (final item in value.whereType<Map>()) {
+        final map = Map<String, dynamic>.from(item);
+        final colorId =
+            _parseInt(map['color_id'] ?? map['colorId'] ?? map['color']);
+        if (colorId == null) continue;
+        final fileId = _parseInt(
+              map['image_id'] ??
+                  map['imageId'] ??
+                  map['image'] ??
+                  map['file_id'] ??
+                  map['id'],
+            ) ??
+            0;
+        final url = _parseString(
+              map['image_url'] ??
+                  map['url'] ??
+                  map['image'] ??
+                  map['path'] ??
+                  map['file'],
+            ) ??
+            '';
+        mapped.putIfAbsent(colorId, () => <SellerProductMediaUpload>[]);
+        if (fileId > 0 || url.isNotEmpty) {
+          mapped[colorId]!.add(
+            SellerProductMediaUpload(fileId: fileId, url: url),
+          );
+        }
+      }
+    }
+    return mapped;
   }
 
   List<SellerProductVariation> get variations {
@@ -338,6 +419,9 @@ class SellerProductMediaUpload {
               map['path'] ??
               map['image'] ??
               map['image_url'] ??
+              map['regular'] ??
+              map['zoom'] ??
+              map['thumbnail'] ??
               map['media_url'] ??
               map['file'] ??
               map['full_path'],
@@ -371,6 +455,51 @@ List<SellerProductMediaUpload> _parseMediaList(dynamic value) {
     }
   }
   return const [];
+}
+
+List<int> _parseIdList(dynamic value) {
+  final ids = <int>[];
+  if (value is List) {
+    for (final item in value) {
+      if (item is int) {
+        ids.add(item);
+        continue;
+      }
+      if (item is num) {
+        ids.add(item.toInt());
+        continue;
+      }
+      if (item is String) {
+        final parsed = int.tryParse(item.trim());
+        if (parsed != null) ids.add(parsed);
+        continue;
+      }
+      if (item is Map) {
+        final map = Map<String, dynamic>.from(item);
+        final id = _parseInt(
+          map['id'] ?? map['category_id'] ?? map['value'] ?? map['key'],
+        );
+        if (id != null) ids.add(id);
+      }
+    }
+  } else if (value is Map) {
+    final map = Map<String, dynamic>.from(value);
+    final nested = _parseIdList(map['data']);
+    if (nested.isNotEmpty) {
+      ids.addAll(nested);
+    } else {
+      final id = _parseInt(
+        map['id'] ?? map['category_id'] ?? map['value'] ?? map['key'],
+      );
+      if (id != null) ids.add(id);
+    }
+  } else if (value is String) {
+    final parsed = int.tryParse(value.trim());
+    if (parsed != null) ids.add(parsed);
+  } else if (value is num) {
+    ids.add(value.toInt());
+  }
+  return ids;
 }
 
 int? _parseInt(dynamic value) {

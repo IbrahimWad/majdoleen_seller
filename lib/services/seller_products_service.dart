@@ -218,15 +218,15 @@ class SellerProductsService {
     required File file,
     int? productId,
   }) async {
-    final uploads = await uploadProductMediaBatch(
+    final upload = await _uploadSingleMedia(
       authToken: authToken,
-      files: [file],
+      file: file,
       productId: productId,
     );
-    if (uploads.isEmpty) {
+    if (upload == null) {
       throw Exception('Product image upload failed.');
     }
-    return uploads.first;
+    return upload;
   }
 
   Future<List<SellerProductMediaUpload>> uploadProductMediaBatch({
@@ -235,7 +235,38 @@ class SellerProductsService {
     int? productId,
   }) async {
     if (files.isEmpty) return const [];
+    if (files.length == 1) {
+      final upload = await _uploadSingleMedia(
+        authToken: authToken,
+        file: files.first,
+        productId: productId,
+      );
+      return upload == null ? const [] : [upload];
+    }
 
+    final uploads = <SellerProductMediaUpload>[];
+    for (final file in files) {
+      try {
+        final upload = await _uploadSingleMedia(
+          authToken: authToken,
+          file: file,
+          productId: productId,
+        );
+        if (upload != null) {
+          uploads.add(upload);
+        }
+      } catch (e) {
+        debugPrint('SellerProductsService upload failed: $e');
+      }
+    }
+    return uploads;
+  }
+
+  Future<SellerProductMediaUpload?> _uploadSingleMedia({
+    required String authToken,
+    required File file,
+    int? productId,
+  }) async {
     final request = http.MultipartRequest(
       'POST',
       ApiConfig.uri('/v1/multivendor/seller-products/media/upload'),
@@ -244,11 +275,9 @@ class SellerProductsService {
     if (productId != null) {
       request.fields['product_id'] = productId.toString();
     }
-    for (final file in files) {
-      request.files.add(
-        await http.MultipartFile.fromPath('file', file.path),
-      );
-    }
+    request.files.add(
+      await http.MultipartFile.fromPath('file', file.path),
+    );
 
     final streamed = await ApiHttpClient.send(request);
     final response = await http.Response.fromStream(streamed);
@@ -265,14 +294,14 @@ class SellerProductsService {
           )
           .toList();
       if (uploads.isNotEmpty) {
-        return uploads;
+        return uploads.first;
       }
     } else if (data is Map) {
       final upload = SellerProductMediaUpload.fromJson(
         Map<String, dynamic>.from(data),
       );
       if (upload.url.isNotEmpty || upload.fileId > 0) {
-        return [upload];
+        return upload;
       }
     }
 
@@ -280,10 +309,10 @@ class SellerProductsService {
       Map<String, dynamic>.from(decoded),
     );
     if (fallback.url.isNotEmpty || fallback.fileId > 0) {
-      return [fallback];
+      return fallback;
     }
 
-    return const [];
+    return null;
   }
 
   Map<String, String> _headers(String? authToken) {
@@ -291,6 +320,10 @@ class SellerProductsService {
       'Content-Type': 'application/json',
       'Accept': 'application/json',
     };
+    final languageCode = ApiConfig.languageCode;
+    if (languageCode != null && languageCode.isNotEmpty) {
+      headers['Accept-Language'] = languageCode;
+    }
     if (authToken != null && authToken.isNotEmpty) {
       final normalized = _normalizeToken(authToken);
       if (normalized.isNotEmpty) {
@@ -301,11 +334,16 @@ class SellerProductsService {
   }
 
   Map<String, String> _multipartHeaders(String authToken) {
-    return <String, String>{
+    final headers = <String, String>{
       'Accept': 'application/json',
       if (authToken.isNotEmpty)
         'Authorization': 'Bearer ${_normalizeToken(authToken)}',
     };
+    final languageCode = ApiConfig.languageCode;
+    if (languageCode != null && languageCode.isNotEmpty) {
+      headers['Accept-Language'] = languageCode;
+    }
+    return headers;
   }
 
   String _normalizeToken(String token) {

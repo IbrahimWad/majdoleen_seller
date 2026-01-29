@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import '../core/app_colors.dart';
 import '../core/app_localizations.dart';
 import '../core/app_routes.dart';
+import '../core/network_utils.dart';
 import '../services/seller_auth_service.dart';
 import '../widgets/app_snackbar.dart';
 import '../widgets/login_wave_clipper.dart';
@@ -100,6 +101,10 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
       showAppSnackBar(context, l10n.verificationInvalidPhone);
       return;
     }
+    if (isOffline(context)) {
+      showAppSnackBar(context, l10n.networkErrorMessage);
+      return;
+    }
 
     setState(() => _isLoading = true);
     FocusScope.of(context).unfocus();
@@ -123,17 +128,27 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
           }
         } else {
           final error = result['error'] ?? result['message'] ?? l10n.forgotPasswordFailed;
-          showAppSnackBar(context, error.toString());
+          if (isNetworkError(error)) {
+            showAppSnackBar(context, l10n.networkErrorMessage);
+          } else {
+            showAppSnackBar(context, error.toString());
+          }
         }
       }
     } catch (e) {
       if (mounted) {
         final l10n = AppLocalizations.of(context);
         String message = l10n.forgotPasswordFailed;
+
+        if (isNetworkError(e) || isOffline(context)) {
+          message = l10n.networkErrorMessage;
+        }
         
         if (e is Exception) {
           final errorMsg = e.toString().replaceAll('Exception: ', '');
-          message = errorMsg.isEmpty ? message : errorMsg;
+          if (message == l10n.forgotPasswordFailed && errorMsg.isNotEmpty) {
+            message = errorMsg;
+          }
         }
         
         showAppSnackBar(context, message);
@@ -158,6 +173,57 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
     final flagEmoji = _selectedCountry?.flagEmoji;
     final hintStyle = _forgotPasswordHintStyle(theme);
 
+    final enabledBorder = UnderlineInputBorder(
+      borderSide: BorderSide(
+        color: kInkColor.withOpacity(0.2),
+        width: 1.2,
+      ),
+    );
+
+    const focusedBorder = UnderlineInputBorder(
+      borderSide: BorderSide(color: kBrandColor, width: 2),
+    );
+
+    Widget countryPrefix() {
+      return Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(10),
+          onTap: _selectCountry,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (flagEmoji != null) ...[
+                  Text(
+                    flagEmoji,
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      fontWeight: FontWeight.w700,
+                      fontSize: labelSize,
+                    ),
+                  ),
+                  const SizedBox(width: 6),
+                ] else ...[
+                  const Icon(Icons.public, size: 16, color: kBrandColor),
+                  const SizedBox(width: 6),
+                ],
+                Text(
+                  codeLabel,
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    fontWeight: FontWeight.w700,
+                    color: kBrandColor,
+                  ),
+                ),
+                const SizedBox(width: 4),
+                const Icon(Icons.expand_more, size: 18, color: kBrandColor),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -170,85 +236,41 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
           ),
         ),
         const SizedBox(height: 6),
-        TextFormField(
-          controller: _phoneController,
-          keyboardType: TextInputType.phone,
-          textInputAction: TextInputAction.next,
-          autofillHints: const [AutofillHints.telephoneNumber],
-          inputFormatters: [
-            FilteringTextInputFormatter.digitsOnly,
-            LengthLimitingTextInputFormatter(15),
-          ],
-          enabled: !_isLoading,
-          onFieldSubmitted: (_) => _sendResetOtp(),
-          decoration: InputDecoration(
-            hintText: l10n.phoneHint,
-            hintStyle: hintStyle,
-            prefixIconConstraints: const BoxConstraints(minHeight: 0, minWidth: 0),
-            prefixIcon: Padding(
-              padding: const EdgeInsetsDirectional.only(start: 0, end: 12),
-              child: Material(
-                color: Colors.transparent,
-                child: InkWell(
-                  borderRadius: BorderRadius.circular(10),
-                  onTap: _selectCountry,
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 10,
-                      vertical: 6,
-                    ),
-                    decoration: BoxDecoration(
-                      color: kBrandColor.withOpacity(0.12),
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        if (flagEmoji != null) ...[
-                          Text(
-                            flagEmoji,
-                            style: theme.textTheme.bodyMedium?.copyWith(
-                              fontWeight: FontWeight.w700,
-                              fontSize: labelSize,
-                            ),
-                          ),
-                          const SizedBox(width: 6),
-                        ] else ...[
-                          const Icon(
-                            Icons.public,
-                            size: 16,
-                            color: kBrandColor,
-                          ),
-                          const SizedBox(width: 6),
-                        ],
-                        Text(
-                          codeLabel,
-                          style: theme.textTheme.bodyMedium?.copyWith(
-                            fontWeight: FontWeight.w700,
-                            color: kBrandColor,
-                          ),
-                        ),
-                        const SizedBox(width: 4),
-                        const Icon(
-                          Icons.expand_more,
-                          size: 18,
-                          color: kBrandColor,
-                        ),
-                      ],
-                    ),
+        Directionality(
+          textDirection: TextDirection.ltr,
+          child: TextFormField(
+            controller: _phoneController,
+            keyboardType: TextInputType.phone,
+            textInputAction: TextInputAction.next,
+            autofillHints: const [AutofillHints.telephoneNumber],
+            inputFormatters: [
+              FilteringTextInputFormatter.digitsOnly,
+              LengthLimitingTextInputFormatter(15),
+            ],
+            enabled: !_isLoading,
+            onFieldSubmitted: (_) => _sendResetOtp(),
+            decoration: InputDecoration(
+              hintText: l10n.phoneHint,
+              hintStyle: hintStyle,
+              contentPadding: EdgeInsets.symmetric(
+                vertical: fieldVerticalPadding,
+              ),
+              enabledBorder: enabledBorder,
+              focusedBorder: focusedBorder,
+              prefixIconConstraints:
+                  const BoxConstraints(minWidth: 0, minHeight: 0),
+              prefixIcon: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  countryPrefix(),
+                  Container(
+                    height: 26,
+                    width: 1,
+                    color: kInkColor.withOpacity(0.15),
                   ),
-                ),
+                  const SizedBox(width: 10),
+                ],
               ),
-            ),
-            contentPadding: EdgeInsets.symmetric(vertical: fieldVerticalPadding),
-            enabledBorder: UnderlineInputBorder(
-              borderSide: BorderSide(
-                color: kInkColor.withOpacity(0.2),
-                width: 1.2,
-              ),
-            ),
-            focusedBorder: const UnderlineInputBorder(
-              borderSide: BorderSide(color: kBrandColor, width: 2),
             ),
           ),
         ),

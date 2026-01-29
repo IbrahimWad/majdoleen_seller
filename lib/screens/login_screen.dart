@@ -7,6 +7,7 @@ import '../core/app_colors.dart';
 import '../core/app_localizations.dart';
 import '../core/app_routes.dart';
 import '../core/locale_controller.dart';
+import '../core/network_utils.dart';
 import '../services/seller_auth_service.dart';
 import '../services/auth_storage.dart';
 import '../widgets/app_snackbar.dart';
@@ -101,6 +102,10 @@ class _LoginScreenState extends State<LoginScreen> {
       showAppSnackBar(context, l10n.verificationInvalidPhone);
       return;
     }
+    if (isOffline(context)) {
+      showAppSnackBar(context, l10n.networkErrorMessage);
+      return;
+    }
 
     setState(() => _isLoading = true);
     FocusScope.of(context).unfocus();
@@ -151,6 +156,9 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   String _loginErrorMessage(Object error, AppLocalizations l10n) {
+    if (isNetworkError(error)) {
+      return l10n.networkErrorMessage;
+    }
     final raw = error.toString().trim();
     const prefix = 'Exception:';
     if (raw.startsWith(prefix)) {
@@ -422,8 +430,8 @@ class _LoginScreenState extends State<LoginScreen> {
                             suffixIcon: IconButton(
                               icon: Icon(
                                 _obscurePassword
-                                    ? Icons.visibility_outlined
-                                    : Icons.visibility_off_outlined,
+                                    ? Icons.visibility_off_outlined
+                                    : Icons.visibility_outlined,
                                 color: kBrandColor,
                                 size: 22,
                               ),

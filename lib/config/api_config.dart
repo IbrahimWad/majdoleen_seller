@@ -4,8 +4,14 @@ class ApiConfig {
   static const String _apiPath = '/api';
   static const String _defaultScheme = 'https';
   static const String _defaultHost = 'majdoleen-irq.com';
-  // static const String _defaultHost = 'majdollen.com.levan-pms.com';
   static const String _defaultPort = '';
+  static String? _languageCode;
+
+  static String? get languageCode => _languageCode;
+
+  static void setLanguageCode(String? code) {
+    _languageCode = code?.trim().isEmpty ?? true ? null : code;
+  }
 
   static String get baseUrl {
     const override = String.fromEnvironment('API_BASE_URL');
@@ -33,34 +39,35 @@ class ApiConfig {
     final trimmed = path.trim();
     if (trimmed.isEmpty) return '';
     if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) {
-      return _normalizePublicPath(trimmed);
+      final uri = Uri.tryParse(trimmed);
+      if (uri == null) return trimmed;
+      final root = Uri.tryParse(rootUrl);
+      final isSameHost = root != null && uri.host == root.host;
+      if (!isSameHost) {
+        return _normalizePublicPath(trimmed);
+      }
+      return _normalizePublicPath(_withPublicPrefix(uri).toString());
     }
     var normalized = trimmed.startsWith('/') ? trimmed : '/$trimmed';
-    if (!normalized.startsWith('/public/')) {
-      if (normalized.startsWith('/uploaded/') ||
-          normalized.startsWith('/uploads/') ||
-          normalized.startsWith('/storage/') ||
-          normalized.startsWith('/image-sliders/')) {
-        normalized = '/public$normalized';
-      }
+    if (!normalized.startsWith('/public/') && normalized != '/public') {
+      normalized = '/public$normalized';
     }
     return _normalizePublicPath('$rootUrl$normalized');
+  }
+
+  static Uri _withPublicPrefix(Uri uri) {
+    final path = uri.path.startsWith('/') ? uri.path : '/${uri.path}';
+    if (path == '/public' || path.startsWith('/public/')) {
+      return uri;
+    }
+    return uri.replace(path: '/public$path');
   }
 
   static String _normalizePublicPath(String url) {
     final uri = Uri.tryParse(url);
     if (uri == null) return url;
-    final path = uri.path;
-    if (path.startsWith('/public/')) {
-      return url;
-    }
-    if (path.startsWith('/uploaded/') ||
-        path.startsWith('/uploads/') ||
-        path.startsWith('/storage/') ||
-        path.startsWith('/image-sliders/')) {
-      return uri.replace(path: '/public$path').toString();
-    }
-    return url;
+    final normalized = uri.path.replaceAll(RegExp(r'/{2,}'), '/');
+    return uri.replace(path: normalized).toString();
   }
 
   static bool get logRequests {

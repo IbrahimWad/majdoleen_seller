@@ -1,6 +1,7 @@
 import 'package:country_picker/country_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
+import '../config/api_config.dart';
 import '../core/app_localizations.dart';
 import '../core/app_routes.dart';
 import '../core/app_theme.dart';
@@ -77,6 +78,9 @@ class _MajdoleenSellerAppState extends State<MajdoleenSellerApp> {
         child: AnimatedBuilder(
           animation: _localeController,
           builder: (context, _) {
+            final effectiveLocale =
+                _localeController.locale ?? deviceLocale;
+            ApiConfig.setLanguageCode(effectiveLocale.languageCode);
             final home = !_localeController.initialized || !_authInitialized
                 ? const _StartupLoader()
                 : _localeController.locale == null

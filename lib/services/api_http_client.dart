@@ -1,5 +1,4 @@
 import 'dart:convert';
-import 'dart:typed_data';
 
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
@@ -175,6 +174,10 @@ class _DefaultHeadersInterceptor extends Interceptor {
   @override
   void onRequest(RequestOptions options, RequestInterceptorHandler handler) {
     options.headers.putIfAbsent('User-Agent', () => ApiConfig.userAgent);
+    final languageCode = ApiConfig.languageCode;
+    if (languageCode != null && languageCode.isNotEmpty) {
+      options.headers['Accept-Language'] = languageCode;
+    }
     handler.next(options);
   }
 }
@@ -250,6 +253,10 @@ void _applyDefaultHeaders(Map<String, String> headers) {
   final hasUserAgent = headers.keys.any((k) => k.toLowerCase() == 'user-agent');
   if (!hasUserAgent) {
     headers['User-Agent'] = ApiConfig.userAgent;
+  }
+  final languageCode = ApiConfig.languageCode;
+  if (languageCode != null && languageCode.isNotEmpty) {
+    headers['Accept-Language'] = languageCode;
   }
 }
 

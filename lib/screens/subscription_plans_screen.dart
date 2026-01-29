@@ -5,6 +5,8 @@ import '../core/app_localizations.dart';
 import '../core/app_navigation.dart';
 import '../core/app_routes.dart';
 import '../core/app_shadows.dart';
+import '../models/subscription_plan.dart';
+import '../services/subscription_storage.dart';
 import '../widgets/app_snackbar.dart';
 import '../widgets/form_section_header.dart';
 import '../widgets/seller_app_bar.dart';
@@ -14,7 +16,14 @@ import '../widgets/seller_drawer.dart';
 class SubscriptionPlansScreen extends StatefulWidget {
   static const String routeName = AppRoutes.subscriptionPlans;
 
-  const SubscriptionPlansScreen({super.key});
+  final bool isOnboarding;
+  final String? completionRoute;
+
+  const SubscriptionPlansScreen({
+    super.key,
+    this.isOnboarding = false,
+    this.completionRoute,
+  });
 
   @override
   State<SubscriptionPlansScreen> createState() =>
@@ -22,13 +31,31 @@ class SubscriptionPlansScreen extends StatefulWidget {
 }
 
 class _SubscriptionPlansScreenState extends State<SubscriptionPlansScreen> {
+  final SubscriptionStorage _subscriptionStorage = SubscriptionStorage();
   String _currentPlanId = 'free';
+
+  @override
+  void initState() {
+    super.initState();
+    _loadCurrentPlan();
+  }
+
+  Future<void> _loadCurrentPlan() async {
+    final stored = await _subscriptionStorage.readPlanId();
+    if (!mounted) return;
+    final normalized = stored?.trim();
+    if (normalized != null && normalized.isNotEmpty) {
+      setState(() {
+        _currentPlanId = normalized;
+      });
+    }
+  }
 
   void _showMessage(String message) {
     showAppSnackBar(context, message);
   }
 
-  Future<void> _requestPlanChange(_PlanTier plan) async {
+  Future<void> _requestPlanChange(SubscriptionPlan plan) async {
     final l10n = AppLocalizations.of(context);
     final confirmed = await showModalBottomSheet<bool>(
       context: context,
@@ -41,6 +68,7 @@ class _SubscriptionPlansScreenState extends State<SubscriptionPlansScreen> {
       setState(() {
         _currentPlanId = plan.id;
       });
+      await _subscriptionStorage.savePlanId(plan.id);
       _showMessage(l10n.subscriptionUpdatedMessage(plan.name));
     }
   }
@@ -50,51 +78,7 @@ class _SubscriptionPlansScreenState extends State<SubscriptionPlansScreen> {
     final theme = Theme.of(context);
     final l10n = AppLocalizations.of(context);
 
-    final plans = [
-      _PlanTier(
-        id: 'free',
-        name: l10n.subscriptionFreeName,
-        description: l10n.subscriptionFreeDescription,
-        price: l10n.subscriptionFreePrice,
-        period: l10n.subscriptionForever,
-        accent: kInfoColor,
-        features: [
-          l10n.subscriptionProductsLimit(50),
-          l10n.subscriptionItemsLimit(500),
-          l10n.subscriptionBasicAnalytics,
-          l10n.subscriptionEmailSupport,
-        ],
-      ),
-      _PlanTier(
-        id: 'plus',
-        name: l10n.subscriptionPlusName,
-        description: l10n.subscriptionPlusDescription,
-        price: l10n.subscriptionPlusPrice,
-        period: l10n.subscriptionPerMonth,
-        accent: kBrandColor,
-        isRecommended: true,
-        features: [
-          l10n.subscriptionProductsLimit(500),
-          l10n.subscriptionItemsLimit(5000),
-          l10n.subscriptionAdvancedAnalytics,
-          l10n.subscriptionPrioritySupport,
-        ],
-      ),
-      _PlanTier(
-        id: 'pro',
-        name: l10n.subscriptionProName,
-        description: l10n.subscriptionProDescription,
-        price: l10n.subscriptionProPrice,
-        period: l10n.subscriptionPerMonth,
-        accent: kBrandDark,
-        features: [
-          l10n.subscriptionProductsUnlimited,
-          l10n.subscriptionItemsUnlimited,
-          l10n.subscriptionCustomInsights,
-          l10n.subscriptionDedicatedSuccess,
-        ],
-      ),
-    ];
+    final plans = SubscriptionPlan.buildPlans(l10n);
 
     final currentPlan =
         plans.firstWhere((plan) => plan.id == _currentPlanId, orElse: () {
@@ -102,8 +86,13 @@ class _SubscriptionPlansScreenState extends State<SubscriptionPlansScreen> {
     });
 
     return Scaffold(
-      appBar: const SellerAppBar(),
-      drawer: const SellerDrawer(),
+      appBar: widget.isOnboarding
+          ? AppBar(
+              automaticallyImplyLeading: false,
+              title: Text(l10n.subscriptionPlansTitle),
+            )
+          : const SellerAppBar(),
+      drawer: widget.isOnboarding ? null : const SellerDrawer(),
       body: SafeArea(
         top: false,
         child: SingleChildScrollView(
@@ -166,38 +155,40 @@ class _SubscriptionPlansScreenState extends State<SubscriptionPlansScreen> {
                   ),
                 ),
               ),
+              if (widget.isOnboarding) ...[
+                const SizedBox(height: 20),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 24),
+                  child: SizedBox(
+                    width: double.infinity,
+                    child: FilledButton(
+                      onPressed: () async {
+                        await _subscriptionStorage.savePlanId(_currentPlanId);
+                        if (!mounted) return;
+                        final route = widget.completionRoute;
+                        if (route != null && route.isNotEmpty) {
+                          Navigator.of(context).pushReplacementNamed(route);
+                        } else {
+                          Navigator.of(context).pop();
+                        }
+                      },
+                      child: Text(l10n.welcomeGetStarted),
+                    ),
+                  ),
+                ),
+              ],
             ],
           ),
         ),
       ),
-      bottomNavigationBar: SellerBottomBar(
-        selectedIndex: -1,
-        onTap: (index) => handleNavTap(context, index),
-      ),
+      bottomNavigationBar: widget.isOnboarding
+          ? null
+          : SellerBottomBar(
+              selectedIndex: -1,
+              onTap: (index) => handleNavTap(context, index),
+            ),
     );
   }
-}
-
-class _PlanTier {
-  final String id;
-  final String name;
-  final String description;
-  final String price;
-  final String period;
-  final Color accent;
-  final bool isRecommended;
-  final List<String> features;
-
-  const _PlanTier({
-    required this.id,
-    required this.name,
-    required this.description,
-    required this.price,
-    required this.period,
-    required this.accent,
-    required this.features,
-    this.isRecommended = false,
-  });
 }
 
 class _CurrentPlanCard extends StatelessWidget {
@@ -272,7 +263,7 @@ class _CurrentPlanCard extends StatelessWidget {
 }
 
 class _PlanCard extends StatelessWidget {
-  final _PlanTier plan;
+  final SubscriptionPlan plan;
   final bool isCurrent;
   final VoidCallback? onSelect;
 
@@ -405,7 +396,7 @@ class _PlanCard extends StatelessWidget {
 }
 
 class _PlanConfirmSheet extends StatelessWidget {
-  final _PlanTier plan;
+  final SubscriptionPlan plan;
 
   const _PlanConfirmSheet({required this.plan});
 

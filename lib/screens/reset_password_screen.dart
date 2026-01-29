@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import '../core/app_colors.dart';
 import '../core/app_localizations.dart';
 import '../core/app_routes.dart';
+import '../core/network_utils.dart';
 import '../services/seller_auth_service.dart';
 import '../widgets/app_snackbar.dart';
 import '../widgets/login_field.dart';
@@ -79,6 +80,11 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
       showAppSnackBar(context, l10n.resetPasswordTokenError);
       return;
     }
+    if (isOffline(context)) {
+      final l10n = AppLocalizations.of(context);
+      showAppSnackBar(context, l10n.networkErrorMessage);
+      return;
+    }
 
     setState(() => _isLoading = true);
     FocusScope.of(context).unfocus();
@@ -104,7 +110,11 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
           }
         } else {
           final error = result['error'] ?? result['message'] ?? l10n.resetPasswordFailed;
-          showAppSnackBar(context, error.toString());
+          if (isNetworkError(error)) {
+            showAppSnackBar(context, l10n.networkErrorMessage);
+          } else {
+            showAppSnackBar(context, error.toString());
+          }
         }
       }
     } catch (e) {
@@ -112,13 +122,19 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
         final l10n = AppLocalizations.of(context);
         String message = l10n.resetPasswordFailed;
 
+        if (isNetworkError(e) || isOffline(context)) {
+          message = l10n.networkErrorMessage;
+        }
+
         if (e.toString().contains('Invalid reset token')) {
           message = l10n.resetPasswordInvalidToken;
         } else if (e.toString().contains('expired')) {
           message = l10n.resetPasswordExpiredToken;
         } else if (e is Exception) {
           final errorMsg = e.toString().replaceAll('Exception: ', '');
-          message = errorMsg.isEmpty ? message : errorMsg;
+          if (message == l10n.resetPasswordFailed && errorMsg.isNotEmpty) {
+            message = errorMsg;
+          }
         }
 
         showAppSnackBar(context, message);
@@ -229,7 +245,7 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
                             setState(() => _showPassword = !_showPassword);
                           },
                           child: Icon(
-                            _showPassword ? Icons.visibility_off : Icons.visibility,
+                            _showPassword ? Icons.visibility : Icons.visibility_off,
                             color: kBrandColor,
                           ),
                         ),
@@ -248,7 +264,7 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
                             setState(() => _showConfirmPassword = !_showConfirmPassword);
                           },
                           child: Icon(
-                            _showConfirmPassword ? Icons.visibility_off : Icons.visibility,
+                            _showConfirmPassword ? Icons.visibility : Icons.visibility_off,
                             color: kBrandColor,
                           ),
                         ),
