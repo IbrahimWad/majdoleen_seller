@@ -15,4 +15,6 @@ class AppRoutes {
   static const settings = '/settings';
   static const subscriptionPlans = '/subscription-plans';
   static const addProduct = '/products/add';
+  static const chatList = '/chats';
+  static const chat = '/chat';
 }

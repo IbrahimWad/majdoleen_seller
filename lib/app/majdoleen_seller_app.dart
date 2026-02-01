@@ -1,6 +1,7 @@
 import 'package:country_picker/country_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
+import 'package:majdoleen_seller/widgets/connectivity_banner.dart';
 import '../config/api_config.dart';
 import '../core/app_localizations.dart';
 import '../core/app_routes.dart';
@@ -26,7 +27,8 @@ import '../screens/store_profile_screen.dart';
 import '../screens/subscription_plans_screen.dart';
 import '../screens/verification_screen.dart';
 import '../screens/welcome_screen.dart';
-import '../widgets/connectivity_banner.dart';
+import '../screens/chat_list_screen.dart';
+import '../screens/chat_screen.dart';
 
 class MajdoleenSellerApp extends StatefulWidget {
   const MajdoleenSellerApp({super.key});
@@ -102,7 +104,7 @@ class _MajdoleenSellerAppState extends State<MajdoleenSellerApp> {
                 return Stack(
                   children: [
                     child ?? const SizedBox.shrink(),
-                    const ConnectivityBanner(),
+                    ConnectivityBanner(),
                   ],
                 );
               },
@@ -135,6 +137,8 @@ class _MajdoleenSellerAppState extends State<MajdoleenSellerApp> {
                 AppRoutes.settings: (_) => const SettingsScreen(),
                 AppRoutes.subscriptionPlans: (_) => const SubscriptionPlansScreen(),
                 AppRoutes.addProduct: (_) => const AddProductScreen(),
+                AppRoutes.chatList: (_) => const ChatListScreen(),
+                AppRoutes.chat: (_) => const ChatScreen(),
               },
             );
           },

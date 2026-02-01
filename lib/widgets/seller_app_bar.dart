@@ -131,6 +131,13 @@ class _SellerAppBarState extends State<SellerAppBar> {
       ),
       actions: [
         IconButton(
+          onPressed: () {
+            Navigator.of(context).pushNamed('/chats');
+          },
+          icon: const Icon(Icons.chat_bubble_outline),
+          tooltip: 'Chats',
+        ),
+        IconButton(
           onPressed: () {},
           icon: const Icon(Icons.notifications_none_rounded),
           tooltip: 'Notifications',

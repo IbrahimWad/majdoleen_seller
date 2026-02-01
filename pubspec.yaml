@@ -54,6 +54,10 @@ dependencies:
   curved_labeled_navigation_bar: ^2.0.6
   mapbox_maps_flutter: ^2.18.0
   maplibre_gl: ^0.25.0
+  record: ^6.2.0
+  just_audio: ^0.9.39
+  path_provider: ^2.1.4
+  intl: ^0.20.2
 
 dev_dependencies:
   flutter_test:
