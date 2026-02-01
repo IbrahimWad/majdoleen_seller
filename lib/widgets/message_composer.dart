@@ -7,10 +7,13 @@ import 'package:path_provider/path_provider.dart';
 import '../../core/app_colors.dart';
 import '../utils/waveform_processor.dart';
 import '../utils/waveform_generator.dart';
+import '../utils/media_picker_service.dart';
+import '../screens/media_preview_screen.dart';
 
 class MessageComposer extends StatefulWidget {
   final Function(String) onSendText;
   final Function(String, Duration, List<double>) onSendVoice; // Updated to include waveform data
+  final Function(List<MediaItem>) onSendMedia;
   final String currentUserId;
   final String currentUserName;
 
@@ -18,6 +21,7 @@ class MessageComposer extends StatefulWidget {
     super.key,
     required this.onSendText,
     required this.onSendVoice,
+    required this.onSendMedia,
     required this.currentUserId,
     required this.currentUserName,
   });
@@ -281,6 +285,39 @@ class _MessageComposerState extends State<MessageComposer> {
     }
   }
 
+  Future<void> _pickMedia() async {
+    try {
+      final mediaPicker = MediaPickerService();
+      final mediaItems = await mediaPicker.pickMultipleMedia(context);
+      if (mediaItems.isNotEmpty && mounted) {
+        final result = await Navigator.push<List<MediaItem>>(
+          context,
+          MaterialPageRoute(
+            builder: (context) => MediaPreviewScreen(
+              selectedMedia: mediaItems,
+              onSend: (selectedItems) {
+                Navigator.of(context).pop(selectedItems);
+              },
+              onCancel: () {
+                Navigator.of(context).pop();
+              },
+            ),
+          ),
+        );
+
+        if (result != null && result.isNotEmpty) {
+          widget.onSendMedia(result);
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error selecting media: $e')),
+        );
+      }
+    }
+  }
+
   String _formatDuration(int seconds) {
     final minutes = seconds ~/ 60;
     final remainingSeconds = seconds % 60;
@@ -307,6 +344,15 @@ class _MessageComposerState extends State<MessageComposer> {
               _buildRecordingIndicator(),
             Row(
               children: [
+                IconButton(
+                  onPressed: _pickMedia,
+                  icon: Icon(
+                    Icons.attach_file,
+                    color: kBrandColor,
+                  ),
+                  tooltip: 'Attach media',
+                ),
+                const SizedBox(width: 8),
                 Expanded(
                   child: TextField(
                     controller: _textController,

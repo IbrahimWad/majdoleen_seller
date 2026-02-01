@@ -4,6 +4,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:record/record.dart';
 import '../data/dummy_data.dart';
 import '../models/chat_models.dart';
+import '../utils/media_picker_service.dart';
 
 class ChatService {
   final AudioRecorder _audioRecorder = AudioRecorder();
@@ -116,6 +117,46 @@ class ChatService {
     if (conversationIndex != -1) {
       dummyConversations[conversationIndex] = dummyConversations[conversationIndex].copyWith(
         lastMessage: 'Voice message',
+        lastMessageTimestamp: DateTime.now(),
+      );
+    }
+
+    return message;
+  }
+
+  // Send media messages (images/videos) as a single group
+  Future<Message> sendMediaGroupMessage(String conversationId, List<MediaItem> mediaItems, String senderId, String senderName) async {
+    final mediaAttachments = mediaItems.map((item) => MediaAttachment(
+      path: item.path,
+      type: item.type == MediaType.image ? MediaType.image : MediaType.video,
+      thumbnailPath: item.type == MediaType.video ? item.path : null, // Placeholder
+      duration: item.duration,
+      width: item.width,
+      height: item.height,
+    )).toList();
+
+    final message = Message(
+      messageId: DateTime.now().millisecondsSinceEpoch.toString(),
+      conversationId: conversationId,
+      senderId: senderId,
+      senderName: senderName,
+      text: '',
+      timestamp: DateTime.now(),
+      messageType: MessageType.mediaGroup,
+      mediaItems: mediaAttachments,
+    );
+
+    dummyMessages.add(message);
+
+    // Update conversation
+    final lastMessage = mediaItems.length == 1
+        ? (mediaItems.first.type == MediaType.image ? 'Photo' : 'Video')
+        : '${mediaItems.length} media files';
+
+    final conversationIndex = dummyConversations.indexWhere((c) => c.conversationId == conversationId);
+    if (conversationIndex != -1) {
+      dummyConversations[conversationIndex] = dummyConversations[conversationIndex].copyWith(
+        lastMessage: lastMessage,
         lastMessageTimestamp: DateTime.now(),
       );
     }

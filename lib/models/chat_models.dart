@@ -1,8 +1,28 @@
 import 'package:intl/intl.dart';
 
-enum MessageType { text, audio }
+enum MessageType { text, audio, image, video, mediaGroup }
 
 enum MessageStatus { sent, delivered, read }
+
+enum MediaType { image, video }
+
+class MediaAttachment {
+  final String path;
+  final MediaType type;
+  final String? thumbnailPath;
+  final Duration? duration;
+  final int? width;
+  final int? height;
+
+  MediaAttachment({
+    required this.path,
+    required this.type,
+    this.thumbnailPath,
+    this.duration,
+    this.width,
+    this.height,
+  });
+}
 
 class Message {
   final String messageId;
@@ -15,7 +35,19 @@ class Message {
   final MessageStatus status;
   final String? audioUrl;
   final Duration? audioDuration;
-  final List<double>? waveformData; // Store waveform samples for consistent display
+  final List<double>? waveformData;
+
+  // For single media (legacy)
+  final String? mediaUrl;
+  final String? thumbnailUrl;
+  final int? mediaWidth;
+  final int? mediaHeight;
+  final Duration? mediaDuration;
+
+  // For media groups
+  final List<MediaAttachment>? mediaItems;
+
+  String get id => messageId;
 
   Message({
     required this.messageId,
@@ -29,6 +61,12 @@ class Message {
     this.audioUrl,
     this.audioDuration,
     this.waveformData,
+    this.mediaUrl,
+    this.thumbnailUrl,
+    this.mediaWidth,
+    this.mediaHeight,
+    this.mediaDuration,
+    this.mediaItems,
   });
 
   String get formattedTime {
@@ -57,6 +95,12 @@ class Message {
     String? audioUrl,
     Duration? audioDuration,
     List<double>? waveformData,
+    String? mediaUrl,
+    String? thumbnailUrl,
+    int? mediaWidth,
+    int? mediaHeight,
+    Duration? mediaDuration,
+    List<MediaAttachment>? mediaItems,
   }) {
     return Message(
       messageId: messageId ?? this.messageId,
@@ -70,6 +114,12 @@ class Message {
       audioUrl: audioUrl ?? this.audioUrl,
       audioDuration: audioDuration ?? this.audioDuration,
       waveformData: waveformData ?? this.waveformData,
+      mediaUrl: mediaUrl ?? this.mediaUrl,
+      thumbnailUrl: thumbnailUrl ?? this.thumbnailUrl,
+      mediaWidth: mediaWidth ?? this.mediaWidth,
+      mediaHeight: mediaHeight ?? this.mediaHeight,
+      mediaDuration: mediaDuration ?? this.mediaDuration,
+      mediaItems: mediaItems ?? this.mediaItems,
     );
   }
 }

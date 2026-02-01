@@ -1,7 +1,11 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:just_audio/just_audio.dart';
 import '../../core/app_colors.dart';
 import '../../models/chat_models.dart';
+import '../screens/image_viewer_screen.dart';
+import '../screens/video_player_screen.dart';
+import '../screens/media_gallery_viewer.dart';
 
 class MessageBubble extends StatefulWidget {
   final Message message;
@@ -116,6 +120,12 @@ class _MessageBubbleState extends State<MessageBubble> {
           children: [
             if (widget.message.messageType == MessageType.audio)
               _buildAudioContent()
+            else if (widget.message.messageType == MessageType.mediaGroup)
+              _buildMediaGroupContent()
+            else if (widget.message.messageType == MessageType.image)
+              _buildImageContent()
+            else if (widget.message.messageType == MessageType.video)
+              _buildVideoContent()
             else
               _buildTextContent(),
             const SizedBox(height: 4),
@@ -138,6 +148,261 @@ class _MessageBubbleState extends State<MessageBubble> {
       style: TextStyle(
         color: widget.isMe ? Colors.white : kInkColor,
         fontSize: 16,
+      ),
+    );
+  }
+
+  Widget _buildImageContent() {
+    if (widget.message.mediaUrl == null) return const SizedBox.shrink();
+
+    return GestureDetector(
+      onTap: () {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => ImageViewerScreen(
+              imagePath: widget.message.mediaUrl!,
+              heroTag: 'message_image_${widget.message.id}',
+            ),
+          ),
+        );
+      },
+      child: Hero(
+        tag: 'message_image_${widget.message.id}',
+        child: Container(
+          constraints: BoxConstraints(
+            maxWidth: MediaQuery.of(context).size.width * 0.6,
+            maxHeight: 200,
+          ),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(12),
+            child: Image.network(
+              widget.message.mediaUrl!,
+              fit: BoxFit.cover,
+              loadingBuilder: (context, child, loadingProgress) {
+                if (loadingProgress == null) return child;
+                return Container(
+                  width: 200,
+                  height: 150,
+                  color: Colors.grey[300],
+                  child: const Center(
+                    child: CircularProgressIndicator(),
+                  ),
+                );
+              },
+              errorBuilder: (context, error, stackTrace) {
+                return Container(
+                  width: 200,
+                  height: 150,
+                  color: Colors.grey[300],
+                  child: const Icon(Icons.error),
+                );
+              },
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildVideoContent() {
+    if (widget.message.mediaUrl == null) return const SizedBox.shrink();
+
+    return GestureDetector(
+      onTap: () {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => VideoPlayerScreen(
+              videoPath: widget.message.mediaUrl!,
+              heroTag: 'message_video_${widget.message.id}',
+            ),
+          ),
+        );
+      },
+      child: Container(
+        constraints: BoxConstraints(
+          maxWidth: MediaQuery.of(context).size.width * 0.6,
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Stack(
+              alignment: Alignment.center,
+              children: [
+                Hero(
+                  tag: 'message_video_${widget.message.id}',
+                  child: Container(
+                    height: 200,
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(12),
+                      color: Colors.black,
+                    ),
+                    child: widget.message.thumbnailUrl != null
+                        ? ClipRRect(
+                            borderRadius: BorderRadius.circular(12),
+                            child: Image.file(
+                              File(widget.message.thumbnailUrl!),
+                              fit: BoxFit.cover,
+                              width: double.infinity,
+                              height: 200,
+                              errorBuilder: (context, error, stackTrace) {
+                                return Container(
+                                  color: Colors.grey[300],
+                                  child: const Icon(Icons.video_file, size: 50),
+                                );
+                              },
+                            ),
+                          )
+                        : Container(
+                            color: Colors.grey[300],
+                            child: const Icon(Icons.video_file, size: 50),
+                          ),
+                  ),
+                ),
+                Container(
+                  width: 50,
+                  height: 50,
+                  decoration: BoxDecoration(
+                    color: Colors.black.withOpacity(0.7),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(
+                    Icons.play_arrow,
+                    color: Colors.white,
+                    size: 30,
+                  ),
+                ),
+              ],
+            ),
+            if (widget.message.mediaDuration != null)
+              Padding(
+                padding: const EdgeInsets.only(top: 4, left: 4),
+                child: Text(
+                  _formatDuration(widget.message.mediaDuration!),
+                  style: TextStyle(
+                    color: widget.isMe ? Colors.white.withOpacity(0.7) : Colors.grey[600],
+                    fontSize: 12,
+                  ),
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildMediaGroupContent() {
+    if (widget.message.mediaItems == null || widget.message.mediaItems!.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
+    final mediaItems = widget.message.mediaItems!;
+    final itemCount = mediaItems.length;
+    final crossAxisCount = itemCount == 1 ? 1 : itemCount <= 4 ? 2 : 3;
+
+    return GestureDetector(
+      onTap: () {
+        // Open full-screen gallery viewer
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => MediaGalleryViewer(
+              mediaItems: mediaItems,
+              initialIndex: 0,
+            ),
+          ),
+        );
+      },
+      child: Container(
+        constraints: BoxConstraints(
+          maxWidth: MediaQuery.of(context).size.width * 0.7,
+        ),
+        child: GridView.builder(
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: crossAxisCount,
+            crossAxisSpacing: 2,
+            mainAxisSpacing: 2,
+          ),
+          itemCount: itemCount > 6 ? 6 : itemCount, // Show max 6 items
+          itemBuilder: (context, index) {
+            if (index == 5 && itemCount > 6) {
+              // Show overlay with remaining count
+              return Container(
+                decoration: BoxDecoration(
+                  color: Colors.black.withOpacity(0.7),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Center(
+                  child: Text(
+                    '+${itemCount - 5}',
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 24,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+              );
+            }
+
+            final mediaItem = mediaItems[index];
+            return Stack(
+              alignment: Alignment.center,
+              children: [
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(8),
+                  child: mediaItem.type == MediaType.image
+                      ? Image.file(
+                          File(mediaItem.path),
+                          fit: BoxFit.cover,
+                          width: double.infinity,
+                          height: double.infinity,
+                          errorBuilder: (context, error, stackTrace) {
+                            return Container(
+                              color: Colors.grey[300],
+                              child: const Icon(Icons.image, size: 30),
+                            );
+                          },
+                        )
+                      : (mediaItem.thumbnailPath != null
+                          ? Image.file(
+                              File(mediaItem.thumbnailPath!),
+                              fit: BoxFit.cover,
+                              width: double.infinity,
+                              height: double.infinity,
+                              errorBuilder: (context, error, stackTrace) {
+                                return Container(
+                                  color: Colors.grey[300],
+                                  child: const Icon(Icons.video_file, size: 30),
+                                );
+                              },
+                            )
+                          : Container(
+                              color: Colors.grey[300],
+                              child: const Icon(Icons.video_file, size: 30),
+                            )),
+                ),
+                if (mediaItem.type == MediaType.video)
+                  Container(
+                    width: 30,
+                    height: 30,
+                    decoration: BoxDecoration(
+                      color: Colors.black.withOpacity(0.7),
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(
+                      Icons.play_arrow,
+                      color: Colors.white,
+                      size: 20,
+                    ),
+                  ),
+              ],
+            );
+          },
+        ),
       ),
     );
   }

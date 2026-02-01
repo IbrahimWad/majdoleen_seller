@@ -5,6 +5,7 @@ import '../widgets/message_bubble.dart';
 import '../widgets/date_separator.dart';
 import '../widgets/message_composer.dart';
 import '../core/app_colors.dart';
+import '../utils/media_picker_service.dart';
 
 class ChatScreen extends StatefulWidget {
   const ChatScreen({super.key});
@@ -99,6 +100,22 @@ class _ChatScreenState extends State<ChatScreen> {
     _scrollToBottom();
   }
 
+  void _sendMediaMessages(List<MediaItem> mediaItems) async {
+    final message = await _chatService.sendMediaGroupMessage(
+      _conversation.conversationId,
+      mediaItems,
+      'user',
+      'You',
+    );
+
+    setState(() {
+      _messages.add(message);
+      _dateGroups = _chatService.groupMessagesByDate(_messages);
+    });
+
+    _scrollToBottom();
+  }
+
   @override
   Widget build(BuildContext context) {
     if (_isLoading) {
@@ -174,6 +191,7 @@ class _ChatScreenState extends State<ChatScreen> {
           MessageComposer(
             onSendText: _sendTextMessage,
             onSendVoice: _sendVoiceMessage,
+            onSendMedia: _sendMediaMessages,
             currentUserId: 'user',
             currentUserName: 'You',
           ),
