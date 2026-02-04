@@ -9,10 +9,57 @@ import '../utils/media_picker_service.dart';
 class ChatService {
   final AudioRecorder _audioRecorder = AudioRecorder();
   String? _currentRecordingPath;
+  final Map<String, StreamController<ChatUser>> _userControllers = {};
 
   // Get conversations
   List<Conversation> getConversations() {
     return dummyConversations;
+  }
+
+  ChatUser? getUser(String userId) {
+    for (final user in dummyUsers) {
+      if (user.userId == userId) {
+        return user;
+      }
+    }
+    return null;
+  }
+
+  Stream<ChatUser> watchUser(String userId) {
+    final controller = _userControllers.putIfAbsent(
+      userId,
+      () => StreamController<ChatUser>.broadcast(),
+    );
+    final user = getUser(userId);
+    if (user != null) {
+      Future.microtask(() => controller.add(user));
+    }
+    return controller.stream;
+  }
+
+  void updateUser(ChatUser user) {
+    final index = dummyUsers.indexWhere((u) => u.userId == user.userId);
+    if (index != -1) {
+      dummyUsers[index] = user;
+    } else {
+      dummyUsers.add(user);
+    }
+    final controller = _userControllers[user.userId];
+    if (controller != null && !controller.isClosed) {
+      controller.add(user);
+    }
+  }
+
+  void setUserOnlineStatus(String userId, bool isOnline) {
+    final user = getUser(userId);
+    if (user == null) {
+      return;
+    }
+    final updated = user.copyWith(
+      isOnline: isOnline,
+      lastSeen: isOnline ? user.lastSeen : DateTime.now(),
+    );
+    updateUser(updated);
   }
 
   // Get messages for a conversation
@@ -184,5 +231,9 @@ class ChatService {
 
   void dispose() {
     _audioRecorder.dispose();
+    for (final controller in _userControllers.values) {
+      controller.close();
+    }
+    _userControllers.clear();
   }
 }

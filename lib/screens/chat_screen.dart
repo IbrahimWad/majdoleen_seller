@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 import '../models/chat_models.dart';
 import '../services/chat_service.dart';
 import '../widgets/message_bubble.dart';
@@ -14,18 +15,23 @@ class ChatScreen extends StatefulWidget {
   State<ChatScreen> createState() => _ChatScreenState();
 }
 
-class _ChatScreenState extends State<ChatScreen> {
+class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   late Conversation _conversation;
   late ChatService _chatService;
   List<Message> _messages = [];
   List<DateGroup> _dateGroups = [];
   final ScrollController _scrollController = ScrollController();
   bool _isLoading = true;
+  final String _currentUserId = 'user';
+  String? _otherUserId;
+  Stream<ChatUser>? _otherUserStream;
+  ChatUser? _otherUserFallback;
 
   @override
   void initState() {
     super.initState();
     _chatService = ChatService();
+    WidgetsBinding.instance.addObserver(this);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _loadConversation();
     });
@@ -37,7 +43,29 @@ class _ChatScreenState extends State<ChatScreen> {
       _conversation = args;
       _loadMessages();
       _chatService.markAsRead(_conversation.conversationId);
+      _setupOtherUser();
+      _chatService.setUserOnlineStatus(_currentUserId, true);
     }
+  }
+
+  void _setupOtherUser() {
+    if (_conversation.participants.isNotEmpty) {
+      _otherUserId = _conversation.participants.firstWhere(
+        (id) => id != _currentUserId,
+        orElse: () => '',
+      );
+    }
+
+    if (_otherUserId != null && _otherUserId!.isNotEmpty) {
+      _otherUserStream = _chatService.watchUser(_otherUserId!);
+      _otherUserFallback = _chatService.getUser(_otherUserId!);
+    }
+
+    _otherUserFallback ??= ChatUser(
+      userId: _otherUserId?.isNotEmpty == true ? _otherUserId! : 'unknown',
+      displayName: _conversation.name,
+      photoUrl: _conversation.avatarUrl,
+    );
   }
 
   void _loadMessages() {
@@ -70,7 +98,7 @@ class _ChatScreenState extends State<ChatScreen> {
     final message = await _chatService.sendTextMessage(
       _conversation.conversationId,
       text,
-      'user', // Current user ID
+      _currentUserId, // Current user ID
       'You', // Current user name
     );
 
@@ -87,7 +115,7 @@ class _ChatScreenState extends State<ChatScreen> {
       _conversation.conversationId,
       audioPath,
       duration,
-      'user',
+      _currentUserId,
       'You',
       waveformData: waveformData,
     );
@@ -104,7 +132,7 @@ class _ChatScreenState extends State<ChatScreen> {
     final message = await _chatService.sendMediaGroupMessage(
       _conversation.conversationId,
       mediaItems,
-      'user',
+      _currentUserId,
       'You',
     );
 
@@ -132,7 +160,8 @@ class _ChatScreenState extends State<ChatScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(_conversation.name),
+        titleSpacing: 0,
+        title: _buildAppBarTitle(),
         backgroundColor: kSurfaceColor,
         foregroundColor: kInkColor,
         elevation: 0,
@@ -176,7 +205,7 @@ class _ChatScreenState extends State<ChatScreen> {
                     children: [
                       DateSeparator(dateText: dateGroup.formattedDate),
                       ...dateGroup.messages.map((message) {
-                        final isMe = message.senderId == 'user';
+                        final isMe = message.senderId == _currentUserId;
                         return MessageBubble(
                           message: message,
                           isMe: isMe,
@@ -192,12 +221,154 @@ class _ChatScreenState extends State<ChatScreen> {
             onSendText: _sendTextMessage,
             onSendVoice: _sendVoiceMessage,
             onSendMedia: _sendMediaMessages,
-            currentUserId: 'user',
+            currentUserId: _currentUserId,
             currentUserName: 'You',
           ),
         ],
       ),
     );
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      _chatService.setUserOnlineStatus(_currentUserId, true);
+    } else if (state == AppLifecycleState.paused || state == AppLifecycleState.inactive) {
+      _chatService.setUserOnlineStatus(_currentUserId, false);
+    }
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _scrollController.dispose();
+    _chatService.dispose();
+    super.dispose();
+  }
+
+  Widget _buildAppBarTitle() {
+    final fallbackUser = _otherUserFallback;
+    if (_otherUserStream == null || fallbackUser == null) {
+      return Text(_conversation.name);
+    }
+
+    return StreamBuilder<ChatUser>(
+      stream: _otherUserStream,
+      builder: (context, snapshot) {
+        final user = snapshot.data ?? fallbackUser;
+        final statusText = _presenceText(user);
+        return Row(
+          children: [
+            GestureDetector(
+              onTap: _openContactProfile,
+              child: _buildAvatar(
+                displayName: user.displayName,
+                photoUrl: user.photoUrl,
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    user.displayName,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  Text(
+                    statusText,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: Colors.grey[600],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _buildAvatar({required String displayName, String? photoUrl}) {
+    final initial = displayName.trim().isNotEmpty ? displayName.trim()[0].toUpperCase() : '?';
+    if (photoUrl == null || photoUrl.trim().isEmpty) {
+      return CircleAvatar(
+        radius: 18,
+        backgroundColor: kBrandColor.withOpacity(0.1),
+        child: Text(
+          initial,
+          style: TextStyle(
+            color: kBrandColor,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+      );
+    }
+
+    return CircleAvatar(
+      radius: 18,
+      backgroundColor: kBrandColor.withOpacity(0.1),
+      child: ClipOval(
+        child: Image.network(
+          photoUrl,
+          width: 36,
+          height: 36,
+          fit: BoxFit.cover,
+          errorBuilder: (context, error, stackTrace) {
+            return Container(
+              width: 36,
+              height: 36,
+              alignment: Alignment.center,
+              color: kBrandColor.withOpacity(0.1),
+              child: Text(
+                initial,
+                style: TextStyle(
+                  color: kBrandColor,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            );
+          },
+        ),
+      ),
+    );
+  }
+
+  String _presenceText(ChatUser user) {
+    if (user.isOnline) {
+      return 'online';
+    }
+    final lastSeen = user.lastSeen;
+    if (lastSeen == null) {
+      return 'offline';
+    }
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final yesterday = today.subtract(const Duration(days: 1));
+    final seenDate = DateTime(lastSeen.year, lastSeen.month, lastSeen.day);
+    final timeText = DateFormat('HH:mm').format(lastSeen);
+
+    if (seenDate == today) {
+      return 'last seen today at $timeText';
+    }
+    if (seenDate == yesterday) {
+      return 'last seen yesterday at $timeText';
+    }
+    return 'last seen ${DateFormat('dd/MM/yyyy HH:mm').format(lastSeen)}';
+  }
+
+  void _openContactProfile() {
+    // No contact profile route in this project yet.
   }
 
   void _showBlockDialog() {

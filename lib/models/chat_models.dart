@@ -6,6 +6,38 @@ enum MessageStatus { sent, delivered, read }
 
 enum MediaType { image, video }
 
+class ChatUser {
+  final String userId;
+  final String displayName;
+  final String? photoUrl;
+  final bool isOnline;
+  final DateTime? lastSeen;
+
+  ChatUser({
+    required this.userId,
+    required this.displayName,
+    this.photoUrl,
+    this.isOnline = false,
+    this.lastSeen,
+  });
+
+  ChatUser copyWith({
+    String? userId,
+    String? displayName,
+    String? photoUrl,
+    bool? isOnline,
+    DateTime? lastSeen,
+  }) {
+    return ChatUser(
+      userId: userId ?? this.userId,
+      displayName: displayName ?? this.displayName,
+      photoUrl: photoUrl ?? this.photoUrl,
+      isOnline: isOnline ?? this.isOnline,
+      lastSeen: lastSeen ?? this.lastSeen,
+    );
+  }
+}
+
 class MediaAttachment {
   final String path;
   final MediaType type;
@@ -131,6 +163,7 @@ class Conversation {
   final DateTime lastMessageTimestamp;
   final int unreadCount;
   final String? avatarUrl;
+  final List<String> participants;
 
   Conversation({
     required this.conversationId,
@@ -139,6 +172,7 @@ class Conversation {
     required this.lastMessageTimestamp,
     this.unreadCount = 0,
     this.avatarUrl,
+    this.participants = const [],
   });
 
   String get formattedLastMessageTime {
@@ -163,6 +197,7 @@ class Conversation {
     DateTime? lastMessageTimestamp,
     int? unreadCount,
     String? avatarUrl,
+    List<String>? participants,
   }) {
     return Conversation(
       conversationId: conversationId ?? this.conversationId,
@@ -171,6 +206,7 @@ class Conversation {
       lastMessageTimestamp: lastMessageTimestamp ?? this.lastMessageTimestamp,
       unreadCount: unreadCount ?? this.unreadCount,
       avatarUrl: avatarUrl ?? this.avatarUrl,
+      participants: participants ?? this.participants,
     );
   }
 }

@@ -1,5 +1,37 @@
 import '../models/chat_models.dart';
 
+List<ChatUser> dummyUsers = [
+  ChatUser(
+    userId: 'user',
+    displayName: 'You',
+    isOnline: true,
+  ),
+  ChatUser(
+    userId: 'support',
+    displayName: 'Customer Support',
+    isOnline: true,
+    lastSeen: DateTime.now().subtract(const Duration(minutes: 2)),
+  ),
+  ChatUser(
+    userId: 'john',
+    displayName: 'John Doe',
+    isOnline: false,
+    lastSeen: DateTime.now().subtract(const Duration(hours: 1, minutes: 10)),
+  ),
+  ChatUser(
+    userId: 'jane',
+    displayName: 'Jane Smith',
+    isOnline: false,
+    lastSeen: DateTime.now().subtract(const Duration(days: 1, hours: 3)),
+  ),
+  ChatUser(
+    userId: 'alice',
+    displayName: 'Alice Johnson',
+    isOnline: false,
+    lastSeen: DateTime.now().subtract(const Duration(days: 3, hours: 5)),
+  ),
+];
+
 List<Conversation> dummyConversations = [
   Conversation(
     conversationId: '1',
@@ -7,6 +39,7 @@ List<Conversation> dummyConversations = [
     lastMessage: 'Thank you for your help!',
     lastMessageTimestamp: DateTime.now().subtract(const Duration(minutes: 5)),
     unreadCount: 2,
+    participants: ['user', 'support'],
   ),
   Conversation(
     conversationId: '2',
@@ -14,6 +47,7 @@ List<Conversation> dummyConversations = [
     lastMessage: 'When will my order arrive?',
     lastMessageTimestamp: DateTime.now().subtract(const Duration(hours: 2)),
     unreadCount: 0,
+    participants: ['user', 'john'],
   ),
   Conversation(
     conversationId: '3',
@@ -21,6 +55,7 @@ List<Conversation> dummyConversations = [
     lastMessage: 'Great product!',
     lastMessageTimestamp: DateTime.now().subtract(const Duration(days: 1)),
     unreadCount: 1,
+    participants: ['user', 'jane'],
   ),
   Conversation(
     conversationId: '4',
@@ -28,6 +63,7 @@ List<Conversation> dummyConversations = [
     lastMessage: 'Can I get a refund?',
     lastMessageTimestamp: DateTime.now().subtract(const Duration(days: 2)),
     unreadCount: 0,
+    participants: ['user', 'alice'],
   ),
 ];
 
